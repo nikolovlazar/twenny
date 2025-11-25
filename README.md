@@ -1,36 +1,170 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# twenny – The Last 20% Ticketing App
 
-## Getting Started
+A deliberately fragile, single Next.js demo built for the video/blog series **"From MVP to Production with Sentry"**.
 
-First, run the development server:
+Purpose: Show developers exactly what breaks after the MVP when real traffic hits, and how to fix the final, painful 20% using Sentry.
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Node.js 20+
+- Docker & Docker Compose
+- npm or your preferred package manager
+
+### Local Development Setup
+
+1. **Clone and install dependencies**
+
+```bash
+npm install
+```
+
+2. **Start Docker services (PostgreSQL & Redis)**
+
+```bash
+docker-compose up -d
+```
+
+This starts:
+- PostgreSQL on `localhost:5432`
+- Redis on `localhost:6379`
+- pgAdmin on `localhost:5050` (optional, user: admin@admin.com, password: admin)
+
+3. **Set up environment variables**
+
+Copy `.env.example` to `.env.local` and update if needed:
+
+```bash
+cp .env.example .env.local
+```
+
+4. **Run database migrations**
+
+```bash
+npm run db:generate  # Generate migrations from schema
+npm run db:migrate   # Apply migrations to database
+```
+
+5. **Seed the database (optional for now)**
+
+```bash
+npm run db:seed  # Seeds 300k events + 3-5M tickets
+```
+
+⚠️ **Warning**: Seeding takes several minutes and will stress your database intentionally!
+
+6. **Start the development server**
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+7. **Start the worker (optional, for queue processing)**
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+In a separate terminal:
 
-## Learn More
+```bash
+npm run worker
+```
 
-To learn more about Next.js, take a look at the following resources:
+## 📦 Available Scripts
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Script | Description |
+|--------|-------------|
+| `npm run dev` | Start Next.js development server |
+| `npm run build` | Build for production |
+| `npm run start` | Start production server |
+| `npm run lint` | Run ESLint |
+| `npm run db:generate` | Generate Drizzle migrations from schema |
+| `npm run db:migrate` | Run pending migrations |
+| `npm run db:studio` | Open Drizzle Studio (database GUI) |
+| `npm run db:seed` | Seed database with huge dataset |
+| `npm run worker` | Start BullMQ worker process |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🏗️ Project Structure
 
-## Deploy on Vercel
+```
+twenny/
+├── app/                    # Next.js App Router
+│   ├── (site)/            # Public pages
+│   ├── checkout/          # Checkout flow
+│   └── admin/             # Admin dashboard
+├── server/                # Server-side code
+│   ├── use-cases/         # Business logic + data access
+│   ├── services/          # Cross-cutting concerns
+│   ├── db.ts              # Drizzle instance
+│   ├── schema.ts          # Database schema
+│   ├── auth.ts            # Better Auth config
+│   ├── queue.ts           # BullMQ setup
+│   ├── worker.ts          # Worker process
+│   └── actions.ts         # Server Actions
+├── components/            # Shared React components
+│   └── ui/                # shadcn/ui components
+├── scripts/               # Utility scripts
+│   └── seed-huge.ts       # Database seeding
+├── migrations/            # Drizzle migrations
+└── docker-compose.yml     # Local services
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 🛠️ Tech Stack
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Next.js 16** - App Router, Server Components, Server Actions
+- **TypeScript** - Full type safety
+- **Drizzle ORM** + postgres.js
+- **Better-Auth** - Authentication & sessions
+- **PostgreSQL** - Primary database
+- **Redis** + **BullMQ** - Background jobs
+- **Sharp** - Image processing
+- **Tailwind CSS** + **shadcn/ui** - Styling
+
+## 🎯 Series Overview
+
+This project is intentionally built with common MVP mistakes that will be progressively fixed:
+
+1. ✅ MVP in <2 hours (works great)
+2. 🔜 Seed 300k events → site dies
+3. 🔜 Find slow queries with Sentry Performance
+4. 🔜 Add missing indexes → 100-300× faster
+5. 🔜 Fix N+1 with Drizzle joins
+6. 🔜 Fix double-spend with SELECT FOR UPDATE
+7. 🔜 Replace setTimeout with BullMQ
+8. 🔜 Scale workers horizontally
+9. 🔜 Stop scalpers with rate limiting
+10. 🔜 Fix image bloat with Sharp
+11. 🔜 Add Redis caching
+12. 🔜 Full Sentry observability
+
+## 🐳 Docker Deployment
+
+The application can be deployed as three separate processes from one Dockerfile:
+
+- **web** - Next.js server
+- **worker** - BullMQ worker
+- **cron** - Scheduled jobs (optional)
+
+Build the image:
+
+```bash
+docker build -t twenny .
+```
+
+Run different processes:
+
+```bash
+# Web server
+docker run -p 3000:3000 twenny node server.js
+
+# Worker
+docker run twenny npm run worker
+```
+
+## 📝 License
+
+MIT
+
+## 🤝 Contributing
+
+This is an educational project. Feel free to explore, learn, and suggest improvements!
