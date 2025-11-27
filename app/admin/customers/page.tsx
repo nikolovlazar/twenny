@@ -1,34 +1,15 @@
 import { PageHeader } from "@/components/admin/page-header";
-import { DataTable, Column } from "@/components/admin/data-table";
 import { listCustomersAdmin } from "@/server/use-cases/admin/customers/list-customers-admin";
+import { CustomersTable } from "./customers-table";
 
-export default async function CustomersPage() {
-  const customers = await listCustomersAdmin();
+interface CustomersPageProps {
+  searchParams: Promise<{ page?: string }>;
+}
 
-  const columns: Column<(typeof customers)[0]>[] = [
-    {
-      key: "firstName",
-      label: "First Name",
-    },
-    {
-      key: "lastName",
-      label: "Last Name",
-    },
-    {
-      key: "email",
-      label: "Email",
-    },
-    {
-      key: "phone",
-      label: "Phone",
-      render: (customer) => customer.phone || "N/A",
-    },
-    {
-      key: "userId",
-      label: "User ID",
-      render: (customer) => customer.userId || "Guest",
-    },
-  ];
+export default async function CustomersPage({ searchParams }: CustomersPageProps) {
+  const params = await searchParams;
+  const page = Math.max(1, parseInt(params.page || "1", 10));
+  const { customers, pagination } = await listCustomersAdmin(page);
 
   return (
     <div>
@@ -37,14 +18,7 @@ export default async function CustomersPage() {
         breadcrumbs={[{ label: "Customers" }]}
       />
 
-      <DataTable
-        data={customers}
-        columns={columns}
-        getItemId={(customer) => customer.id}
-        basePath="/admin/customers"
-        emptyMessage="No customers found."
-      />
+      <CustomersTable customers={customers} pagination={pagination} />
     </div>
   );
 }
-

@@ -1,42 +1,15 @@
 import { PageHeader } from "@/components/admin/page-header";
-import { DataTable, Column } from "@/components/admin/data-table";
-import { StatusBadge } from "@/components/admin/status-badge";
 import { listOrdersAdmin } from "@/server/use-cases/admin/orders/list-orders-admin";
+import { OrdersTable } from "./orders-table";
 
-export default async function OrdersPage() {
-  const orders = await listOrdersAdmin();
+interface OrdersPageProps {
+  searchParams: Promise<{ page?: string }>;
+}
 
-  const columns: Column<(typeof orders)[0]>[] = [
-    {
-      key: "orderNumber",
-      label: "Order Number",
-    },
-    {
-      key: "customerEmail",
-      label: "Customer",
-      render: (order) => `${order.customerFirstName} ${order.customerLastName}`,
-    },
-    {
-      key: "total",
-      label: "Total",
-      render: (order) => `$${order.total}`,
-    },
-    {
-      key: "status",
-      label: "Status",
-      render: (order) => <StatusBadge status={order.status} type="order" />,
-    },
-    {
-      key: "paymentStatus",
-      label: "Payment",
-      render: (order) => <StatusBadge status={order.paymentStatus} type="payment" />,
-    },
-    {
-      key: "createdAt",
-      label: "Date",
-      render: (order) => new Date(order.createdAt).toLocaleDateString(),
-    },
-  ];
+export default async function OrdersPage({ searchParams }: OrdersPageProps) {
+  const params = await searchParams;
+  const page = Math.max(1, parseInt(params.page || "1", 10));
+  const { orders, pagination } = await listOrdersAdmin(page);
 
   return (
     <div>
@@ -45,14 +18,7 @@ export default async function OrdersPage() {
         breadcrumbs={[{ label: "Orders" }]}
       />
 
-      <DataTable
-        data={orders}
-        columns={columns}
-        getItemId={(order) => order.id}
-        basePath="/admin/orders"
-        emptyMessage="No orders found."
-      />
+      <OrdersTable orders={orders} pagination={pagination} />
     </div>
   );
 }
-

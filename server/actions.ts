@@ -76,7 +76,7 @@ export async function searchEventsAction(params: unknown) {
       return {
         success: false,
         error: "Invalid input parameters",
-        details: error.errors,
+        details: error.issues,
       };
     }
 
@@ -182,7 +182,7 @@ export async function createOrderAction(input: unknown) {
       return {
         success: false,
         error: "Invalid order data",
-        details: error.errors,
+        details: error.issues,
       };
     }
 

@@ -5,15 +5,13 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-type Venue = {
+type Customer = {
   id: string;
-  name: string;
-  city: string | null;
-  country: string | null;
-  capacity: number | null;
-  isVirtual: number;
-  address: string | null;
-  onlineUrl: string | null;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string | null;
+  userId: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -27,34 +25,34 @@ type Pagination = {
   hasPrev: boolean;
 };
 
-interface VenuesTableProps {
-  venues: Venue[];
+interface CustomersTableProps {
+  customers: Customer[];
   pagination: Pagination;
 }
 
-export function VenuesTable({ venues, pagination }: VenuesTableProps) {
-  const columns: Column<Venue>[] = [
+export function CustomersTable({ customers, pagination }: CustomersTableProps) {
+  const columns: Column<Customer>[] = [
     {
-      key: "name",
-      label: "Name",
+      key: "firstName",
+      label: "First Name",
     },
     {
-      key: "city",
-      label: "City",
+      key: "lastName",
+      label: "Last Name",
     },
     {
-      key: "country",
-      label: "Country",
+      key: "email",
+      label: "Email",
     },
     {
-      key: "capacity",
-      label: "Capacity",
-      render: (venue) => venue.capacity?.toLocaleString() || "N/A",
+      key: "phone",
+      label: "Phone",
+      render: (customer) => customer.phone || "N/A",
     },
     {
-      key: "isVirtual",
-      label: "Type",
-      render: (venue) => (venue.isVirtual === 1 ? "Virtual" : "Physical"),
+      key: "userId",
+      label: "User ID",
+      render: (customer) => customer.userId || "Guest",
     },
   ];
 
@@ -65,17 +63,17 @@ export function VenuesTable({ venues, pagination }: VenuesTableProps) {
   return (
     <div className="space-y-4">
       <DataTable
-        data={venues}
+        data={customers}
         columns={columns}
-        getItemId={(venue) => venue.id}
-        basePath="/admin/venues"
-        emptyMessage="No venues found. Create one to get started."
+        getItemId={(customer) => customer.id}
+        basePath="/admin/customers"
+        emptyMessage="No customers found."
       />
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between px-2">
           <p className="text-sm text-muted-foreground">
-            Showing {startItem} to {endItem} of {total.toLocaleString()} venues
+            Showing {startItem} to {endItem} of {total.toLocaleString()} customers
           </p>
           <div className="flex items-center gap-2">
             <Button
@@ -85,7 +83,7 @@ export function VenuesTable({ venues, pagination }: VenuesTableProps) {
               asChild={hasPrev}
             >
               {hasPrev ? (
-                <Link href={`/admin/venues?page=${page - 1}`}>
+                <Link href={`/admin/customers?page=${page - 1}`}>
                   <ChevronLeft className="h-4 w-4 mr-1" />
                   Previous
                 </Link>
@@ -106,7 +104,7 @@ export function VenuesTable({ venues, pagination }: VenuesTableProps) {
               asChild={hasNext}
             >
               {hasNext ? (
-                <Link href={`/admin/venues?page=${page + 1}`}>
+                <Link href={`/admin/customers?page=${page + 1}`}>
                   Next
                   <ChevronRight className="h-4 w-4 ml-1" />
                 </Link>

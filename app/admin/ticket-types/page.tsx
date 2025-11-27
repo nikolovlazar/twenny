@@ -1,44 +1,26 @@
 import { PageHeader } from "@/components/admin/page-header";
-import { DataTable, Column } from "@/components/admin/data-table";
 import { listTicketTypes } from "@/server/use-cases/admin/ticket-types/list-ticket-types";
-import Link from "next/link";
+import { TicketTypesTable } from "./ticket-types-table";
 
-export default async function TicketTypesPage() {
-  const ticketTypes = await listTicketTypes();
+interface TicketTypesPageProps {
+  searchParams: Promise<{ page?: string }>;
+}
 
-  const columns: Column<(typeof ticketTypes)[0]>[] = [
-    {
-      key: "name",
-      label: "Name",
-    },
-    {
-      key: "eventTitle",
-      label: "Event",
-      render: (tt) => (
-        <Link
-          href={`/admin/events/${tt.eventId}`}
-          className="text-primary hover:underline"
-        >
-          {tt.eventTitle}
-        </Link>
-      ),
-    },
-    {
-      key: "price",
-      label: "Price",
-      render: (tt) => `$${tt.price}`,
-    },
-    {
-      key: "quantity",
-      label: "Quantity",
-      render: (tt) => `${tt.quantitySold} / ${tt.quantity}`,
-    },
-    {
-      key: "isActive",
-      label: "Active",
-      render: (tt) => (tt.isActive === 1 ? "Yes" : "No"),
-    },
-  ];
+export default async function TicketTypesPage({ searchParams }: TicketTypesPageProps) {
+  const params = await searchParams;
+  const page = Math.max(1, parseInt(params.page || "1", 10));
+  const { ticketTypes, pagination } = await listTicketTypes(page);
+
+  // Transform the data to include pre-rendered values
+  const transformedTicketTypes = ticketTypes.map((tt) => ({
+    id: tt.id,
+    name: tt.name,
+    eventId: tt.eventId,
+    eventTitle: tt.eventTitle,
+    formattedPrice: `$${tt.price}`,
+    formattedQuantity: `${tt.quantitySold} / ${tt.quantity}`,
+    activeText: tt.isActive === 1 ? "Yes" : "No",
+  }));
 
   return (
     <div>
@@ -48,13 +30,7 @@ export default async function TicketTypesPage() {
         action={{ label: "Add Ticket Type", href: "/admin/ticket-types/new" }}
       />
 
-      <DataTable
-        data={ticketTypes}
-        columns={columns}
-        getItemId={(tt) => tt.id}
-        basePath="/admin/ticket-types"
-        emptyMessage="No ticket types found. Create one to get started."
-      />
+      <TicketTypesTable data={transformedTicketTypes} pagination={pagination} />
     </div>
   );
 }

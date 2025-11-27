@@ -2,8 +2,14 @@ import { PageHeader } from "@/components/admin/page-header";
 import { listVenues } from "@/server/use-cases/admin/venues/list-venues";
 import { VenuesTable } from "./venues-table";
 
-export default async function VenuesPage() {
-  const venues = await listVenues();
+interface VenuesPageProps {
+  searchParams: Promise<{ page?: string }>;
+}
+
+export default async function VenuesPage({ searchParams }: VenuesPageProps) {
+  const params = await searchParams;
+  const page = Math.max(1, parseInt(params.page || "1", 10));
+  const { venues, pagination } = await listVenues(page);
 
   return (
     <div>
@@ -13,7 +19,7 @@ export default async function VenuesPage() {
         action={{ label: "Add Venue", href: "/admin/venues/new" }}
       />
 
-      <VenuesTable venues={venues} />
+      <VenuesTable venues={venues} pagination={pagination} />
     </div>
   );
 }

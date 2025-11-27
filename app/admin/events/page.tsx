@@ -1,42 +1,27 @@
 import { PageHeader } from "@/components/admin/page-header";
-import { DataTable, Column } from "@/components/admin/data-table";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { listEventsAdmin } from "@/server/use-cases/admin/events/list-events-admin";
+import { EventsTable } from "./events-table";
 
-export default async function EventsPage() {
-  const events = await listEventsAdmin();
+interface EventsPageProps {
+  searchParams: Promise<{ page?: string }>;
+}
 
-  const columns: Column<(typeof events)[0]>[] = [
-    {
-      key: "title",
-      label: "Title",
-    },
-    {
-      key: "venueName",
-      label: "Venue",
-    },
-    {
-      key: "startDate",
-      label: "Start Date",
-      render: (event) =>
-        new Date(event.startDate).toLocaleDateString(),
-    },
-    {
-      key: "status",
-      label: "Status",
-      render: (event) => <StatusBadge status={event.status} type="event" />,
-    },
-    {
-      key: "isPublished",
-      label: "Published",
-      render: (event) => (event.isPublished === 1 ? "Yes" : "No"),
-    },
-    {
-      key: "totalCapacity",
-      label: "Capacity",
-      render: (event) => event.totalCapacity.toLocaleString(),
-    },
-  ];
+export default async function EventsPage({ searchParams }: EventsPageProps) {
+  const params = await searchParams;
+  const page = Math.max(1, parseInt(params.page || "1", 10));
+  const { events, pagination } = await listEventsAdmin(page);
+
+  // Transform the data to include pre-rendered values
+  const transformedEvents = events.map((event) => ({
+    id: event.id,
+    title: event.title,
+    venueName: event.venueName,
+    formattedStartDate: new Date(event.startDate).toLocaleDateString(),
+    statusBadge: <StatusBadge status={event.status} type="event" />,
+    publishedText: event.isPublished === 1 ? "Yes" : "No",
+    formattedCapacity: event.totalCapacity.toLocaleString(),
+  }));
 
   return (
     <div>
@@ -46,13 +31,7 @@ export default async function EventsPage() {
         action={{ label: "Add Event", href: "/admin/events/new" }}
       />
 
-      <DataTable
-        data={events}
-        columns={columns}
-        getItemId={(event) => event.id}
-        basePath="/admin/events"
-        emptyMessage="No events found. Create one to get started."
-      />
+      <EventsTable data={transformedEvents} pagination={pagination} />
     </div>
   );
 }

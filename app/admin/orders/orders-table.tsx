@@ -1,21 +1,24 @@
 "use client";
 
 import { DataTable, Column } from "@/components/admin/data-table";
+import { StatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-type Venue = {
+type Order = {
   id: string;
-  name: string;
-  city: string | null;
-  country: string | null;
-  capacity: number | null;
-  isVirtual: number;
-  address: string | null;
-  onlineUrl: string | null;
+  orderNumber: string;
+  status: string;
+  paymentStatus: string;
+  total: string;
+  currency: string;
+  customerEmail: string;
+  customerFirstName: string;
+  customerLastName: string;
+  customerId: string | null;
   createdAt: Date;
-  updatedAt: Date;
+  completedAt: Date | null;
 };
 
 type Pagination = {
@@ -27,34 +30,41 @@ type Pagination = {
   hasPrev: boolean;
 };
 
-interface VenuesTableProps {
-  venues: Venue[];
+interface OrdersTableProps {
+  orders: Order[];
   pagination: Pagination;
 }
 
-export function VenuesTable({ venues, pagination }: VenuesTableProps) {
-  const columns: Column<Venue>[] = [
+export function OrdersTable({ orders, pagination }: OrdersTableProps) {
+  const columns: Column<Order>[] = [
     {
-      key: "name",
-      label: "Name",
+      key: "orderNumber",
+      label: "Order Number",
     },
     {
-      key: "city",
-      label: "City",
+      key: "customerEmail",
+      label: "Customer",
+      render: (order) => `${order.customerFirstName} ${order.customerLastName}`,
     },
     {
-      key: "country",
-      label: "Country",
+      key: "total",
+      label: "Total",
+      render: (order) => `$${order.total}`,
     },
     {
-      key: "capacity",
-      label: "Capacity",
-      render: (venue) => venue.capacity?.toLocaleString() || "N/A",
+      key: "status",
+      label: "Status",
+      render: (order) => <StatusBadge status={order.status} type="order" />,
     },
     {
-      key: "isVirtual",
-      label: "Type",
-      render: (venue) => (venue.isVirtual === 1 ? "Virtual" : "Physical"),
+      key: "paymentStatus",
+      label: "Payment",
+      render: (order) => <StatusBadge status={order.paymentStatus} type="payment" />,
+    },
+    {
+      key: "createdAt",
+      label: "Date",
+      render: (order) => new Date(order.createdAt).toLocaleDateString(),
     },
   ];
 
@@ -65,17 +75,17 @@ export function VenuesTable({ venues, pagination }: VenuesTableProps) {
   return (
     <div className="space-y-4">
       <DataTable
-        data={venues}
+        data={orders}
         columns={columns}
-        getItemId={(venue) => venue.id}
-        basePath="/admin/venues"
-        emptyMessage="No venues found. Create one to get started."
+        getItemId={(order) => order.id}
+        basePath="/admin/orders"
+        emptyMessage="No orders found."
       />
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between px-2">
           <p className="text-sm text-muted-foreground">
-            Showing {startItem} to {endItem} of {total.toLocaleString()} venues
+            Showing {startItem} to {endItem} of {total.toLocaleString()} orders
           </p>
           <div className="flex items-center gap-2">
             <Button
@@ -85,7 +95,7 @@ export function VenuesTable({ venues, pagination }: VenuesTableProps) {
               asChild={hasPrev}
             >
               {hasPrev ? (
-                <Link href={`/admin/venues?page=${page - 1}`}>
+                <Link href={`/admin/orders?page=${page - 1}`}>
                   <ChevronLeft className="h-4 w-4 mr-1" />
                   Previous
                 </Link>
@@ -106,7 +116,7 @@ export function VenuesTable({ venues, pagination }: VenuesTableProps) {
               asChild={hasNext}
             >
               {hasNext ? (
-                <Link href={`/admin/venues?page=${page + 1}`}>
+                <Link href={`/admin/orders?page=${page + 1}`}>
                   Next
                   <ChevronRight className="h-4 w-4 ml-1" />
                 </Link>

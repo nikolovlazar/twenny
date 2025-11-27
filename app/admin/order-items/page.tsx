@@ -1,47 +1,15 @@
 import { PageHeader } from "@/components/admin/page-header";
-import { DataTable, Column } from "@/components/admin/data-table";
 import { listOrderItems } from "@/server/use-cases/admin/order-items/list-order-items";
-import Link from "next/link";
+import { OrderItemsTable } from "./order-items-table";
 
-export default async function OrderItemsPage() {
-  const orderItems = await listOrderItems();
+interface OrderItemsPageProps {
+  searchParams: Promise<{ page?: string }>;
+}
 
-  const columns: Column<(typeof orderItems)[0]>[] = [
-    {
-      key: "ticketTypeName",
-      label: "Ticket Type",
-    },
-    {
-      key: "eventTitle",
-      label: "Event",
-    },
-    {
-      key: "orderNumber",
-      label: "Order",
-      render: (item) => (
-        <Link
-          href={`/admin/orders/${item.orderId}`}
-          className="text-primary hover:underline"
-        >
-          {item.orderNumber}
-        </Link>
-      ),
-    },
-    {
-      key: "quantity",
-      label: "Quantity",
-    },
-    {
-      key: "unitPrice",
-      label: "Unit Price",
-      render: (item) => `$${item.unitPrice}`,
-    },
-    {
-      key: "subtotal",
-      label: "Subtotal",
-      render: (item) => `$${item.subtotal}`,
-    },
-  ];
+export default async function OrderItemsPage({ searchParams }: OrderItemsPageProps) {
+  const params = await searchParams;
+  const page = Math.max(1, parseInt(params.page || "1", 10));
+  const { orderItems, pagination } = await listOrderItems(page);
 
   return (
     <div>
@@ -50,14 +18,7 @@ export default async function OrderItemsPage() {
         breadcrumbs={[{ label: "Order Items" }]}
       />
 
-      <DataTable
-        data={orderItems}
-        columns={columns}
-        getItemId={(item) => item.id}
-        basePath="/admin/order-items"
-        emptyMessage="No order items found."
-      />
+      <OrderItemsTable orderItems={orderItems} pagination={pagination} />
     </div>
   );
 }
-

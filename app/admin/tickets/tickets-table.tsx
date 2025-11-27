@@ -1,21 +1,24 @@
 "use client";
 
 import { DataTable, Column } from "@/components/admin/data-table";
+import { StatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-type Venue = {
+type Ticket = {
   id: string;
-  name: string;
-  city: string | null;
-  country: string | null;
-  capacity: number | null;
-  isVirtual: number;
-  address: string | null;
-  onlineUrl: string | null;
+  ticketCode: string;
+  status: string;
+  eventTitle: string;
+  ticketTypeName: string;
+  price: string;
+  isCheckedIn: number;
+  checkedInAt: Date | null;
+  attendeeEmail: string | null;
+  customerEmail: string | null;
+  eventId: string;
   createdAt: Date;
-  updatedAt: Date;
 };
 
 type Pagination = {
@@ -27,34 +30,47 @@ type Pagination = {
   hasPrev: boolean;
 };
 
-interface VenuesTableProps {
-  venues: Venue[];
+interface TicketsTableProps {
+  tickets: Ticket[];
   pagination: Pagination;
 }
 
-export function VenuesTable({ venues, pagination }: VenuesTableProps) {
-  const columns: Column<Venue>[] = [
+export function TicketsTable({ tickets, pagination }: TicketsTableProps) {
+  const columns: Column<Ticket>[] = [
     {
-      key: "name",
-      label: "Name",
+      key: "ticketCode",
+      label: "Ticket Code",
     },
     {
-      key: "city",
-      label: "City",
+      key: "eventTitle",
+      label: "Event",
+      render: (ticket) => (
+        <Link
+          href={`/admin/events/${ticket.eventId}`}
+          className="text-primary hover:underline"
+        >
+          {ticket.eventTitle}
+        </Link>
+      ),
     },
     {
-      key: "country",
-      label: "Country",
-    },
-    {
-      key: "capacity",
-      label: "Capacity",
-      render: (venue) => venue.capacity?.toLocaleString() || "N/A",
-    },
-    {
-      key: "isVirtual",
+      key: "ticketTypeName",
       label: "Type",
-      render: (venue) => (venue.isVirtual === 1 ? "Virtual" : "Physical"),
+    },
+    {
+      key: "attendeeEmail",
+      label: "Attendee",
+      render: (ticket) => ticket.attendeeEmail || ticket.customerEmail || "N/A",
+    },
+    {
+      key: "status",
+      label: "Status",
+      render: (ticket) => <StatusBadge status={ticket.status} type="ticket" />,
+    },
+    {
+      key: "isCheckedIn",
+      label: "Checked In",
+      render: (ticket) => (ticket.isCheckedIn === 1 ? "Yes" : "No"),
     },
   ];
 
@@ -65,17 +81,17 @@ export function VenuesTable({ venues, pagination }: VenuesTableProps) {
   return (
     <div className="space-y-4">
       <DataTable
-        data={venues}
+        data={tickets}
         columns={columns}
-        getItemId={(venue) => venue.id}
-        basePath="/admin/venues"
-        emptyMessage="No venues found. Create one to get started."
+        getItemId={(ticket) => ticket.id}
+        basePath="/admin/tickets"
+        emptyMessage="No tickets found."
       />
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between px-2">
           <p className="text-sm text-muted-foreground">
-            Showing {startItem} to {endItem} of {total.toLocaleString()} venues
+            Showing {startItem} to {endItem} of {total.toLocaleString()} tickets
           </p>
           <div className="flex items-center gap-2">
             <Button
@@ -85,7 +101,7 @@ export function VenuesTable({ venues, pagination }: VenuesTableProps) {
               asChild={hasPrev}
             >
               {hasPrev ? (
-                <Link href={`/admin/venues?page=${page - 1}`}>
+                <Link href={`/admin/tickets?page=${page - 1}`}>
                   <ChevronLeft className="h-4 w-4 mr-1" />
                   Previous
                 </Link>
@@ -106,7 +122,7 @@ export function VenuesTable({ venues, pagination }: VenuesTableProps) {
               asChild={hasNext}
             >
               {hasNext ? (
-                <Link href={`/admin/venues?page=${page + 1}`}>
+                <Link href={`/admin/tickets?page=${page + 1}`}>
                   Next
                   <ChevronRight className="h-4 w-4 ml-1" />
                 </Link>

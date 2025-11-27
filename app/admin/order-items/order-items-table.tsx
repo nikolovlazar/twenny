@@ -5,17 +5,16 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-type Venue = {
+type OrderItem = {
   id: string;
-  name: string;
-  city: string | null;
-  country: string | null;
-  capacity: number | null;
-  isVirtual: number;
-  address: string | null;
-  onlineUrl: string | null;
+  quantity: number;
+  unitPrice: string;
+  subtotal: string;
+  ticketTypeName: string;
+  orderId: string;
+  orderNumber: string | null;
+  eventTitle: string | null;
   createdAt: Date;
-  updatedAt: Date;
 };
 
 type Pagination = {
@@ -27,34 +26,46 @@ type Pagination = {
   hasPrev: boolean;
 };
 
-interface VenuesTableProps {
-  venues: Venue[];
+interface OrderItemsTableProps {
+  orderItems: OrderItem[];
   pagination: Pagination;
 }
 
-export function VenuesTable({ venues, pagination }: VenuesTableProps) {
-  const columns: Column<Venue>[] = [
+export function OrderItemsTable({ orderItems, pagination }: OrderItemsTableProps) {
+  const columns: Column<OrderItem>[] = [
     {
-      key: "name",
-      label: "Name",
+      key: "ticketTypeName",
+      label: "Ticket Type",
     },
     {
-      key: "city",
-      label: "City",
+      key: "eventTitle",
+      label: "Event",
     },
     {
-      key: "country",
-      label: "Country",
+      key: "orderNumber",
+      label: "Order",
+      render: (item) => (
+        <Link
+          href={`/admin/orders/${item.orderId}`}
+          className="text-primary hover:underline"
+        >
+          {item.orderNumber}
+        </Link>
+      ),
     },
     {
-      key: "capacity",
-      label: "Capacity",
-      render: (venue) => venue.capacity?.toLocaleString() || "N/A",
+      key: "quantity",
+      label: "Quantity",
     },
     {
-      key: "isVirtual",
-      label: "Type",
-      render: (venue) => (venue.isVirtual === 1 ? "Virtual" : "Physical"),
+      key: "unitPrice",
+      label: "Unit Price",
+      render: (item) => `$${item.unitPrice}`,
+    },
+    {
+      key: "subtotal",
+      label: "Subtotal",
+      render: (item) => `$${item.subtotal}`,
     },
   ];
 
@@ -65,17 +76,17 @@ export function VenuesTable({ venues, pagination }: VenuesTableProps) {
   return (
     <div className="space-y-4">
       <DataTable
-        data={venues}
+        data={orderItems}
         columns={columns}
-        getItemId={(venue) => venue.id}
-        basePath="/admin/venues"
-        emptyMessage="No venues found. Create one to get started."
+        getItemId={(item) => item.id}
+        basePath="/admin/order-items"
+        emptyMessage="No order items found."
       />
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between px-2">
           <p className="text-sm text-muted-foreground">
-            Showing {startItem} to {endItem} of {total.toLocaleString()} venues
+            Showing {startItem} to {endItem} of {total.toLocaleString()} order items
           </p>
           <div className="flex items-center gap-2">
             <Button
@@ -85,7 +96,7 @@ export function VenuesTable({ venues, pagination }: VenuesTableProps) {
               asChild={hasPrev}
             >
               {hasPrev ? (
-                <Link href={`/admin/venues?page=${page - 1}`}>
+                <Link href={`/admin/order-items?page=${page - 1}`}>
                   <ChevronLeft className="h-4 w-4 mr-1" />
                   Previous
                 </Link>
@@ -106,7 +117,7 @@ export function VenuesTable({ venues, pagination }: VenuesTableProps) {
               asChild={hasNext}
             >
               {hasNext ? (
-                <Link href={`/admin/venues?page=${page + 1}`}>
+                <Link href={`/admin/order-items?page=${page + 1}`}>
                   Next
                   <ChevronRight className="h-4 w-4 ml-1" />
                 </Link>
