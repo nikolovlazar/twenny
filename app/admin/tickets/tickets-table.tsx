@@ -2,7 +2,7 @@
 
 import { DataTable, Column } from "@/components/admin/data-table";
 import { StatusBadge } from "@/components/admin/status-badge";
-import { CursorPagination, CursorPaginationData } from "@/components/admin/cursor-pagination";
+import { Pagination, PaginationData } from "@/components/admin/pagination";
 import Link from "next/link";
 
 type Ticket = {
@@ -22,7 +22,7 @@ type Ticket = {
 
 interface TicketsTableProps {
   tickets: Ticket[];
-  pagination: CursorPaginationData;
+  pagination: PaginationData;
 }
 
 export function TicketsTable({ tickets, pagination }: TicketsTableProps) {
@@ -74,7 +74,7 @@ export function TicketsTable({ tickets, pagination }: TicketsTableProps) {
         emptyMessage="No tickets found."
       />
 
-      <CursorPagination
+      <Pagination
         pagination={pagination}
         basePath="/admin/tickets"
         itemName="tickets"

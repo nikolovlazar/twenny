@@ -3,20 +3,13 @@ import { listTicketsAdmin } from "@/server/use-cases/admin/tickets/list-tickets-
 import { TicketsTable } from "./tickets-table";
 
 interface TicketsPageProps {
-  searchParams: Promise<{ cursor?: string; page?: string; prevCursor?: string; jumpTo?: string }>;
+  searchParams: Promise<{ page?: string }>;
 }
 
 export default async function TicketsPage({ searchParams }: TicketsPageProps) {
   const params = await searchParams;
-  const page = params.page ? parseInt(params.page, 10) : 1;
-  const isJump = params.jumpTo === "true";
-
-  const { tickets, pagination } = await listTicketsAdmin(
-    params.cursor,
-    page,
-    params.prevCursor,
-    isJump
-  );
+  const page = Math.max(1, parseInt(params.page || "1", 10));
+  const { tickets, pagination } = await listTicketsAdmin(page);
 
   return (
     <div>
