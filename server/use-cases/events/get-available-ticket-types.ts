@@ -21,7 +21,7 @@ export interface AvailableTicketType {
  * Get available ticket types for an event
  *
  * Calculates availability from inventory slots:
- * - Total slots = quantity (from ticket_inventory count)
+ * - Total slots = COUNT from ticket_inventory table (source of truth)
  * - Sold slots = tickets linked to inventory slots
  * - Available = Total - Sold
  */
@@ -30,7 +30,7 @@ export async function getAvailableTicketTypes(
 ): Promise<AvailableTicketType[]> {
   const now = new Date();
 
-  // Get ticket types with sold count calculated from tickets table
+  // Get ticket types for the event
   const ticketTypes = await db
     .select({
       id: schema.ticketTypes.id,
@@ -53,7 +53,13 @@ export async function getAvailableTicketTypes(
     )
     .orderBy(schema.ticketTypes.sortOrder);
 
-  // Get sold counts for each ticket type
+  if (ticketTypes.length === 0) {
+    return [];
+  }
+
+  const ticketTypeIds = ticketTypes.map((tt) => tt.id);
+
+  // Get sold counts for each ticket type from tickets table
   const soldCounts = await db
     .select({
       ticketTypeId: schema.tickets.ticketTypeId,
@@ -62,17 +68,36 @@ export async function getAvailableTicketTypes(
     .from(schema.tickets)
     .where(
       sql`${schema.tickets.ticketTypeId} IN (${sql.join(
-        ticketTypes.map((tt) => sql`${tt.id}`),
+        ticketTypeIds.map((ttId) => sql`${ttId}`),
         sql`, `
       )})`
     )
     .groupBy(schema.tickets.ticketTypeId);
 
+  // Get total inventory slots for each ticket type from ticket_inventory table
+  const inventoryCounts = await db
+    .select({
+      ticketTypeId: schema.ticketInventory.ticketTypeId,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(schema.ticketInventory)
+    .where(
+      sql`${schema.ticketInventory.ticketTypeId} IN (${sql.join(
+        ticketTypeIds.map((ttId) => sql`${ttId}`),
+        sql`, `
+      )})`
+    )
+    .groupBy(schema.ticketInventory.ticketTypeId);
+
   const soldCountMap = new Map(
     soldCounts.map((sc) => [sc.ticketTypeId, sc.count])
   );
 
-  // Filter by sale dates and calculate availability
+  const inventoryCountMap = new Map(
+    inventoryCounts.map((ic) => [ic.ticketTypeId, ic.count])
+  );
+
+  // Filter by sale dates and calculate availability based on actual inventory slots
   const availableTicketTypes = ticketTypes
     .filter((tt) => {
       // Check if sale has started
@@ -85,20 +110,22 @@ export async function getAvailableTicketTypes(
         return false;
       }
 
-      // Check if there are tickets available
+      // Check if there are tickets available based on actual inventory slots
       const sold = soldCountMap.get(tt.id) || 0;
-      return tt.quantity > sold;
+      const totalInventorySlots = inventoryCountMap.get(tt.id) || 0;
+      return totalInventorySlots > sold;
     })
     .map((tt) => {
       const quantitySold = soldCountMap.get(tt.id) || 0;
+      const totalInventorySlots = inventoryCountMap.get(tt.id) || 0;
       return {
         id: tt.id,
         name: tt.name,
         description: tt.description,
         price: tt.price,
-        quantity: tt.quantity,
+        quantity: totalInventorySlots, // Use actual inventory slot count
         quantitySold,
-        quantityAvailable: tt.quantity - quantitySold,
+        quantityAvailable: totalInventorySlots - quantitySold,
         saleStartDate: tt.saleStartDate,
         saleEndDate: tt.saleEndDate,
         minQuantityPerOrder: tt.minQuantityPerOrder,
