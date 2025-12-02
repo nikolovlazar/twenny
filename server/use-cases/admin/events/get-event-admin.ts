@@ -1,6 +1,6 @@
 import { db } from "@/server/db";
-import { events, venues, ticketTypes } from "@/server/schema";
-import { eq } from "drizzle-orm";
+import { events, venues, ticketTypes, tickets } from "@/server/schema";
+import { eq, sql } from "drizzle-orm";
 
 export async function getEventAdmin(id: string) {
   const [event] = await db
@@ -20,10 +20,38 @@ export async function getEventAdmin(id: string) {
     .from(ticketTypes)
     .where(eq(ticketTypes.eventId, id));
 
+  // Calculate quantitySold for each ticket type from tickets table
+  const ticketTypeIds = eventTicketTypes.map((tt) => tt.id);
+  const soldCounts =
+    ticketTypeIds.length > 0
+      ? await db
+          .select({
+            ticketTypeId: tickets.ticketTypeId,
+            count: sql<number>`count(*)::int`,
+          })
+          .from(tickets)
+          .where(
+            sql`${tickets.ticketTypeId} IN (${sql.join(
+              ticketTypeIds.map((ttId) => sql`${ttId}`),
+              sql`, `
+            )})`
+          )
+          .groupBy(tickets.ticketTypeId)
+      : [];
+
+  const soldCountMap = new Map(
+    soldCounts.map((sc) => [sc.ticketTypeId, sc.count])
+  );
+
+  const ticketTypesWithSold = eventTicketTypes.map((tt) => ({
+    ...tt,
+    quantitySold: soldCountMap.get(tt.id) || 0,
+  }));
+
   return {
     ...event,
     venue,
-    ticketTypes: eventTicketTypes,
+    ticketTypes: ticketTypesWithSold,
   };
 }
 

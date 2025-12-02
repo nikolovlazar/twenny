@@ -1,5 +1,6 @@
 import { EventCard } from "@/components/event-card";
 import { EventFilters } from "@/components/event-filters";
+import { EventsPagination } from "@/components/events-pagination";
 import { listEvents } from "@/server/use-cases/events/list-events";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -80,69 +81,11 @@ export default async function EventsPage({
           </div>
 
           {/* Pagination */}
-          {result.totalPages > 1 && (
-            <div className="flex justify-center gap-2">
-              {page > 1 && (
-                <Link
-                  href={`/events?${new URLSearchParams({
-                    ...Object.fromEntries(
-                      Object.entries(params).filter(([, v]) => v != null)
-                    ),
-                    page: (page - 1).toString(),
-                  }).toString()}`}
-                >
-                  <Button variant="outline">Previous</Button>
-                </Link>
-              )}
-
-              <div className="flex items-center gap-2">
-                {Array.from({ length: Math.min(5, result.totalPages) }, (_, i) => {
-                  let pageNum: number;
-                  if (result.totalPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (page <= 3) {
-                    pageNum = i + 1;
-                  } else if (page >= result.totalPages - 2) {
-                    pageNum = result.totalPages - 4 + i;
-                  } else {
-                    pageNum = page - 2 + i;
-                  }
-
-                  return (
-                    <Link
-                      key={pageNum}
-                      href={`/events?${new URLSearchParams({
-                        ...Object.fromEntries(
-                          Object.entries(params).filter(([, v]) => v != null)
-                        ),
-                        page: pageNum.toString(),
-                      }).toString()}`}
-                    >
-                      <Button
-                        variant={pageNum === page ? "default" : "outline"}
-                        size="sm"
-                      >
-                        {pageNum}
-                      </Button>
-                    </Link>
-                  );
-                })}
-              </div>
-
-              {page < result.totalPages && (
-                <Link
-                  href={`/events?${new URLSearchParams({
-                    ...Object.fromEntries(
-                      Object.entries(params).filter(([, v]) => v != null)
-                    ),
-                    page: (page + 1).toString(),
-                  }).toString()}`}
-                >
-                  <Button variant="outline">Next</Button>
-                </Link>
-              )}
-            </div>
-          )}
+          <EventsPagination
+            currentPage={page}
+            totalPages={result.totalPages}
+            searchParams={params}
+          />
         </>
       ) : (
         <div className="py-12 text-center">

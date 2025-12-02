@@ -1,5 +1,5 @@
 import { config } from "dotenv";
-config();
+config({ quiet: true });
 
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";

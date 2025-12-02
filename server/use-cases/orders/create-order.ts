@@ -1,7 +1,10 @@
 import { db } from "../../db";
 import * as schema from "../../schema";
-import { eq, sql } from "drizzle-orm";
-import { findOrCreateCustomer, type CustomerInput } from "../customers/find-or-create-customer";
+import { eq, notInArray, and } from "drizzle-orm";
+import {
+  findOrCreateCustomer,
+  type CustomerInput,
+} from "../customers/find-or-create-customer";
 
 export interface TicketSelection {
   ticketTypeId: string;
@@ -31,26 +34,27 @@ export interface CreateOrderResult {
 /**
  * Create a complete order with tickets
  *
- * This function:
- * 1. Validates ticket availability
+ * This function uses pre-allocated inventory slots:
+ * 1. Query available inventory slots (NO LOCK - enables race condition!)
  * 2. Creates/finds customer
- * 3. Creates order
- * 4. Creates order items
- * 5. Generates individual tickets
- * 6. Updates ticket type quantities
+ * 3. Creates order and order items
+ * 4. Claims inventory slots by creating tickets with inventorySlotId
+ * 5. UNIQUE constraint on inventorySlotId throws error if slot already claimed
  *
- * MVP Issues:
- * - No SELECT FOR UPDATE (race condition possible)
- * - No inventory reservation system
- * - Simple transaction handling
+ * RACE CONDITION:
+ * Two users can query the same slots as "available", but only one can
+ * successfully INSERT a ticket claiming that slot. The second user gets
+ * a unique constraint violation - which Sentry captures!
  */
 export async function createOrder(
   input: CreateOrderInput
 ): Promise<CreateOrderResult> {
   return await db.transaction(async (tx) => {
-    // 1. Validate ticket types and check availability
-    const ticketTypesData = await Promise.all(
+    // 1. Validate ticket types and find available inventory slots
+    // IMPORTANT: No SELECT FOR UPDATE here - this enables the race condition!
+    const ticketTypesWithSlots = await Promise.all(
       input.tickets.map(async (ticket) => {
+        // Get ticket type info
         const ticketTypes = await tx
           .select()
           .from(schema.ticketTypes)
@@ -63,14 +67,6 @@ export async function createOrder(
 
         const ticketType = ticketTypes[0];
 
-        // Check availability (MVP: no lock, race condition possible)
-        const available = ticketType.quantity - ticketType.quantitySold;
-        if (available < ticket.quantity) {
-          throw new Error(
-            `Not enough tickets available for ${ticketType.name}. Available: ${available}, Requested: ${ticket.quantity}`
-          );
-        }
-
         // Check max quantity per order
         if (
           ticketType.maxQuantityPerOrder &&
@@ -81,15 +77,40 @@ export async function createOrder(
           );
         }
 
+        // Find available inventory slots (slots not yet claimed by any ticket)
+        // NO LOCK HERE - both users will get the same slots!
+        const claimedSlotIds = tx
+          .select({ id: schema.tickets.inventorySlotId })
+          .from(schema.tickets);
+
+        const availableSlots = await tx
+          .select()
+          .from(schema.ticketInventory)
+          .where(
+            and(
+              eq(schema.ticketInventory.ticketTypeId, ticket.ticketTypeId),
+              notInArray(schema.ticketInventory.id, claimedSlotIds)
+            )
+          )
+          .limit(ticket.quantity);
+
+        // Check if we have enough available slots
+        if (availableSlots.length < ticket.quantity) {
+          throw new Error(
+            `Not enough tickets available for ${ticketType.name}. Available: ${availableSlots.length}, Requested: ${ticket.quantity}`
+          );
+        }
+
         return {
           ...ticketType,
           requestedQuantity: ticket.quantity,
+          inventorySlots: availableSlots,
         };
       })
     );
 
     // Get event details for the first ticket type (assuming all from same event)
-    const firstTicketType = ticketTypesData[0];
+    const firstTicketType = ticketTypesWithSlots[0];
     const events = await tx
       .select()
       .from(schema.events)
@@ -107,7 +128,7 @@ export async function createOrder(
 
     // 3. Calculate order totals
     let subtotal = 0;
-    ticketTypesData.forEach((tt) => {
+    ticketTypesWithSlots.forEach((tt) => {
       subtotal += parseFloat(tt.price) * tt.requestedQuantity;
     });
 
@@ -141,7 +162,7 @@ export async function createOrder(
 
     const order = orders[0];
 
-    // 6. Create order items and tickets
+    // 6. Create order items and claim inventory slots by creating tickets
     const allTickets: Array<{
       id: string;
       ticketCode: string;
@@ -150,7 +171,7 @@ export async function createOrder(
       price: string;
     }> = [];
 
-    for (const ticketTypeData of ticketTypesData) {
+    for (const ticketTypeData of ticketTypesWithSlots) {
       const unitPrice = parseFloat(ticketTypeData.price);
       const itemSubtotal = unitPrice * ticketTypeData.requestedQuantity;
 
@@ -169,8 +190,11 @@ export async function createOrder(
 
       const orderItem = orderItems[0];
 
-      // Generate individual tickets
+      // Claim inventory slots by creating tickets
+      // If another user already claimed a slot, this INSERT will fail with
+      // UNIQUE CONSTRAINT VIOLATION on inventory_slot_id - Sentry captures this!
       for (let i = 0; i < ticketTypeData.requestedQuantity; i++) {
+        const inventorySlot = ticketTypeData.inventorySlots[i];
         const ticketCode = `TKT-${Date.now()}-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
 
         const tickets = await tx
@@ -181,6 +205,7 @@ export async function createOrder(
             eventId: event.id,
             ticketTypeId: ticketTypeData.id,
             customerId: customer.id,
+            inventorySlotId: inventorySlot.id, // Claim this slot!
             ticketCode,
             status: "valid",
             eventTitle: event.title,
@@ -197,15 +222,6 @@ export async function createOrder(
           price: tickets[0].price,
         });
       }
-
-      // Update ticket type quantity sold (MVP: no lock, race condition possible)
-      await tx
-        .update(schema.ticketTypes)
-        .set({
-          quantitySold: sql`${schema.ticketTypes.quantitySold} + ${ticketTypeData.requestedQuantity}`,
-          updatedAt: new Date(),
-        })
-        .where(eq(schema.ticketTypes.id, ticketTypeData.id));
     }
 
     // 7. Mark order as completed (fake payment for MVP)

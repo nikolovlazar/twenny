@@ -1,8 +1,9 @@
 // Load environment variables from .env file
 import { config } from "dotenv";
-config();
+config({ quiet: true });
 
 import { faker } from "@faker-js/faker";
+import { eq } from "drizzle-orm";
 import { db } from "../server/db";
 import * as schema from "../server/schema";
 
@@ -249,7 +250,6 @@ function generateTicketTypes(events: Array<{ id: string; startDate: Date }>) {
     description: string;
     price: string;
     quantity: number;
-    quantitySold: number;
     saleStartDate: Date;
     saleEndDate: Date;
     minQuantityPerOrder: number;
@@ -274,7 +274,6 @@ function generateTicketTypes(events: Array<{ id: string; startDate: Date }>) {
 
     selectedTypes.forEach((type, index) => {
       const quantity = randomInt(50, 10000);
-      const quantitySold = randomInt(0, quantity);
       const saleStartDate = new Date(
         event.startDate.getTime() - 90 * 24 * 60 * 60 * 1000
       ); // 90 days before
@@ -288,7 +287,6 @@ function generateTicketTypes(events: Array<{ id: string; startDate: Date }>) {
         description: `${type.name} ticket with exclusive benefits`,
         price: (Math.random() * (type.priceMax - type.priceMin) + type.priceMin).toFixed(2),
         quantity,
-        quantitySold,
         saleStartDate,
         saleEndDate,
         minQuantityPerOrder: 1,
@@ -300,6 +298,35 @@ function generateTicketTypes(events: Array<{ id: string; startDate: Date }>) {
   }
 
   return ticketTypes;
+}
+
+function generateInventorySlots(
+  ticketTypes: Array<{ id: string; quantity: number }>
+) {
+  logProgress(
+    `Generating inventory slots for ${ticketTypes.length} ticket types...`
+  );
+  const inventorySlots: Array<{
+    ticketTypeId: string;
+    createdAt: Date;
+  }> = [];
+
+  for (const ticketType of ticketTypes) {
+    // Create 'quantity' inventory slots for each ticket type
+    for (let i = 0; i < ticketType.quantity; i++) {
+      inventorySlots.push({
+        ticketTypeId: ticketType.id,
+        createdAt: new Date(),
+      });
+    }
+
+    // Log progress every 100 ticket types
+    if (inventorySlots.length % 100000 === 0) {
+      logProgress(`  Generated inventory slots`, inventorySlots.length);
+    }
+  }
+
+  return inventorySlots;
 }
 
 function generateCustomers(count: number) {
@@ -465,23 +492,19 @@ function generateOrderItems(
   return orderItems;
 }
 
-function generateTickets(
-  orderItems: Array<{
+function generateTicketData(
+  orderItem: {
     id: string;
     orderId: string;
     ticketTypeId: string;
     quantity: number;
     unitPrice: string;
-  }>,
+  },
   eventIds: string[],
-  customerIds: string[]
+  customerIds: string[],
+  inventorySlotId: string,
+  usedCodes: Set<string>
 ) {
-  logProgress(
-    `Generating tickets from ${orderItems.length} order items...`
-  );
-  const tickets = [];
-  const usedCodes = new Set<string>();
-
   function generateUniqueTicketCode(): string {
     let code: string;
     do {
@@ -491,72 +514,56 @@ function generateTickets(
     return code;
   }
 
-  for (const orderItem of orderItems) {
-    for (let i = 0; i < orderItem.quantity; i++) {
-      const isPastEvent = Math.random() > 0.2; // 80% past events
-      const status = isPastEvent
-        ? weightedRandomStatus([
-            { value: "used" as const, weight: 90 },
-            { value: "valid" as const, weight: 5 },
-            { value: "cancelled" as const, weight: 3 },
-            { value: "refunded" as const, weight: 2 },
-          ])
-        : weightedRandomStatus([
-            { value: "valid" as const, weight: 85 },
-            { value: "cancelled" as const, weight: 10 },
-            { value: "refunded" as const, weight: 5 },
-          ]);
+  const isPastEvent = Math.random() > 0.2; // 80% past events
+  const status = isPastEvent
+    ? weightedRandomStatus([
+        { value: "used" as const, weight: 90 },
+        { value: "valid" as const, weight: 5 },
+        { value: "cancelled" as const, weight: 3 },
+        { value: "refunded" as const, weight: 2 },
+      ])
+    : weightedRandomStatus([
+        { value: "valid" as const, weight: 85 },
+        { value: "cancelled" as const, weight: 10 },
+        { value: "refunded" as const, weight: 5 },
+      ]);
 
-      const isCheckedIn = status === "used" ? 1 : 0;
-      const checkedInAt =
-        isCheckedIn === 1
-          ? faker.date.past({ years: 1 })
-          : null;
+  const isCheckedIn = status === "used" ? 1 : 0;
+  const checkedInAt = isCheckedIn === 1 ? faker.date.past({ years: 1 }) : null;
 
-      const firstName = faker.person.firstName();
-      const lastName = faker.person.lastName();
+  const firstName = faker.person.firstName();
+  const lastName = faker.person.lastName();
 
-      tickets.push({
-        orderId: orderItem.orderId,
-        orderItemId: orderItem.id,
-        eventId: randomFromArray(eventIds),
-        ticketTypeId: orderItem.ticketTypeId,
-        customerId: randomFromArray(customerIds),
-        ticketCode: generateUniqueTicketCode(),
-        barcode: Math.random() > 0.5 ? faker.string.numeric(13) : null,
-        status,
-        attendeeFirstName: Math.random() > 0.3 ? firstName : null,
-        attendeeLastName: Math.random() > 0.3 ? lastName : null,
-        attendeeEmail:
-          Math.random() > 0.3
-            ? faker.internet.email({ firstName, lastName })
-            : null,
-        isCheckedIn,
-        checkedInAt,
-        checkedInBy:
-          isCheckedIn === 1 ? `staff_${faker.string.alphanumeric(8)}` : null,
-        eventTitle: `Event ${faker.music.songName()}`,
-        ticketTypeName: randomFromArray([
-          "VIP",
-          "General Admission",
-          "Early Bird",
-          "Student",
-          "Group",
-        ]),
-        price: orderItem.unitPrice,
-        transferredFrom: Math.random() > 0.95 ? faker.string.uuid() : null,
-        transferredAt:
-          Math.random() > 0.95 ? faker.date.past({ years: 1 }) : null,
-      });
-
-      // Log progress every 250k
-      if (tickets.length % 250000 === 0) {
-        logProgress(`  Generated tickets`, tickets.length);
-      }
-    }
-  }
-
-  return tickets;
+  return {
+    orderId: orderItem.orderId,
+    orderItemId: orderItem.id,
+    eventId: randomFromArray(eventIds),
+    ticketTypeId: orderItem.ticketTypeId,
+    customerId: randomFromArray(customerIds),
+    inventorySlotId,
+    ticketCode: generateUniqueTicketCode(),
+    barcode: Math.random() > 0.5 ? faker.string.numeric(13) : null,
+    status,
+    attendeeFirstName: Math.random() > 0.3 ? firstName : null,
+    attendeeLastName: Math.random() > 0.3 ? lastName : null,
+    attendeeEmail:
+      Math.random() > 0.3 ? faker.internet.email({ firstName, lastName }) : null,
+    isCheckedIn,
+    checkedInAt,
+    checkedInBy:
+      isCheckedIn === 1 ? `staff_${faker.string.alphanumeric(8)}` : null,
+    eventTitle: `Event ${faker.music.songName()}`,
+    ticketTypeName: randomFromArray([
+      "VIP",
+      "General Admission",
+      "Early Bird",
+      "Student",
+      "Group",
+    ]),
+    price: orderItem.unitPrice,
+    transferredFrom: Math.random() > 0.95 ? faker.string.uuid() : null,
+    transferredAt: Math.random() > 0.95 ? faker.date.past({ years: 1 }) : null,
+  };
 }
 
 // ============================================
@@ -570,7 +577,7 @@ async function main() {
 
   try {
     // STEP 1: Venues
-    logProgress("STEP 1/7: Seeding venues");
+    logProgress("STEP 1/8: Seeding venues");
     const venues = generateVenues(CONFIG.venues);
     await insertBatch("venues", schema.venues, venues, venues.length);
     const venueRecords = await db.select({ id: schema.venues.id }).from(schema.venues);
@@ -578,7 +585,7 @@ async function main() {
     logProgress(`✓ Created ${venueIds.length} venues`);
 
     // STEP 2: Events
-    logProgress("\nSTEP 2/7: Seeding events");
+    logProgress("\nSTEP 2/8: Seeding events");
     const events = generateEvents(CONFIG.events, venueIds);
     await insertBatch("events", schema.events, events, events.length);
     const eventRecords = await db
@@ -587,7 +594,7 @@ async function main() {
     logProgress(`✓ Created ${eventRecords.length} events`);
 
     // STEP 3: Ticket Types
-    logProgress("\nSTEP 3/7: Seeding ticket types");
+    logProgress("\nSTEP 3/8: Seeding ticket types");
     const ticketTypes = generateTicketTypes(eventRecords);
     await insertBatch(
       "ticket_types",
@@ -596,13 +603,52 @@ async function main() {
       ticketTypes.length
     );
     const ticketTypeRecords = await db
-      .select({ id: schema.ticketTypes.id })
+      .select({ id: schema.ticketTypes.id, quantity: schema.ticketTypes.quantity })
       .from(schema.ticketTypes);
     const ticketTypeIds = ticketTypeRecords.map((t) => t.id);
     logProgress(`✓ Created ${ticketTypeIds.length} ticket types`);
 
-    // STEP 4: Customers (in batches to avoid memory issues)
-    logProgress("\nSTEP 4/7: Seeding customers");
+    // STEP 4: Inventory Slots (pre-allocated tickets) - batched inserts for speed
+    logProgress("\nSTEP 4/8: Seeding inventory slots");
+    let totalInventorySlots = 0;
+
+    // Accumulate slots and batch insert for speed
+    // PostgreSQL limit: 65534 params, we have 2 params per slot, so max ~32k rows
+    let pendingSlots: { ticketTypeId: string; createdAt: Date }[] = [];
+    const SLOT_INSERT_BATCH_SIZE = 30000; // Max safe batch size for Postgres
+
+    for (let i = 0; i < ticketTypeRecords.length; i++) {
+      const ticketType = ticketTypeRecords[i];
+      const createdAt = new Date();
+
+      // Add all slots for this ticket type to pending
+      for (let j = 0; j < ticketType.quantity; j++) {
+        pendingSlots.push({ ticketTypeId: ticketType.id, createdAt });
+
+        // Flush when we hit batch size
+        if (pendingSlots.length >= SLOT_INSERT_BATCH_SIZE) {
+          await db.insert(schema.ticketInventory).values(pendingSlots);
+          totalInventorySlots += pendingSlots.length;
+          pendingSlots = [];
+        }
+      }
+
+      // Log progress every 500 ticket types
+      if ((i + 1) % 500 === 0 || i === ticketTypeRecords.length - 1) {
+        logProgress(`  Processed ticket types ${i + 1}/${ticketTypeRecords.length}, total slots: ${totalInventorySlots.toLocaleString()}`);
+      }
+    }
+
+    // Insert remaining slots
+    if (pendingSlots.length > 0) {
+      await db.insert(schema.ticketInventory).values(pendingSlots);
+      totalInventorySlots += pendingSlots.length;
+    }
+
+    logProgress(`✓ Created ${totalInventorySlots.toLocaleString()} inventory slots`);
+
+    // STEP 5: Customers (in batches to avoid memory issues)
+    logProgress("\nSTEP 5/8: Seeding customers");
     const customerBatchSize = 50000;
     const customerIds: string[] = [];
     for (let i = 0; i < CONFIG.customers; i += customerBatchSize) {
@@ -623,8 +669,8 @@ async function main() {
     }
     logProgress(`✓ Created ${customerIds.length} customers`);
 
-    // STEP 5: Orders (in batches)
-    logProgress("\nSTEP 5/7: Seeding orders");
+    // STEP 6: Orders (in batches)
+    logProgress("\nSTEP 6/8: Seeding orders");
     const orderBatchSize = 100000;
     const orderIds: Array<{ id: string; subtotal: string }> = [];
     for (let i = 0; i < CONFIG.orders; i += orderBatchSize) {
@@ -640,8 +686,8 @@ async function main() {
     }
     logProgress(`✓ Created ${orderIds.length} orders`);
 
-    // STEP 6: Order Items (in batches)
-    logProgress("\nSTEP 6/7: Seeding order items");
+    // STEP 7: Order Items (in batches)
+    logProgress("\nSTEP 7/8: Seeding order items");
     const orderItemBatchSize = 100000;
     let totalOrderItems = 0;
     for (let i = 0; i < orderIds.length; i += orderItemBatchSize) {
@@ -657,12 +703,23 @@ async function main() {
     }
     logProgress(`✓ Created ${totalOrderItems} order items`);
 
-    // STEP 7: Tickets (fetch order items in batches and generate tickets)
-    logProgress("\nSTEP 7/7: Seeding tickets");
-    const orderItemFetchBatchSize = 10000; // Fetch 10k order items at a time
+    // STEP 8: Tickets - fetch inventory slots from DB on-demand, batch inserts for speed
+    logProgress("\nSTEP 8/8: Seeding tickets");
     const eventIdsArray = eventRecords.map((e) => e.id);
     let totalTickets = 0;
-    let offset = 0;
+    const usedCodes = new Set<string>();
+
+    // Track how many slots we've used per ticket type (offset for DB queries)
+    const slotOffsetByTicketType = new Map<string, number>();
+
+    // Accumulator for batch inserts - collect tickets across multiple order item batches
+    // Tickets have ~20 columns = 20 params each, so max 65534/20 = ~3200 rows
+    let pendingTickets: ReturnType<typeof generateTicketData>[] = [];
+    const TICKET_INSERT_BATCH_SIZE = 3000; // Max safe batch size for Postgres
+
+    // Process order items in batches
+    const orderItemFetchBatchSize = 25000; // Fetch more at once
+    let orderItemOffset = 0;
 
     while (true) {
       // Fetch a batch of order items from the database
@@ -676,42 +733,95 @@ async function main() {
         })
         .from(schema.orderItems)
         .limit(orderItemFetchBatchSize)
-        .offset(offset);
+        .offset(orderItemOffset);
 
       if (orderItemBatch.length === 0) break;
 
-      const ticketBatch = generateTickets(
-        orderItemBatch,
-        eventIdsArray,
-        customerIds
-      );
-      await insertBatch(
-        "tickets",
-        schema.tickets,
-        ticketBatch,
-        ticketBatch.length
-      );
-      totalTickets += ticketBatch.length;
-      offset += orderItemFetchBatchSize;
+      // Group order items by ticket type to batch fetch inventory slots
+      const orderItemsByTicketType = new Map<string, typeof orderItemBatch>();
+      for (const item of orderItemBatch) {
+        const items = orderItemsByTicketType.get(item.ticketTypeId) || [];
+        items.push(item);
+        orderItemsByTicketType.set(item.ticketTypeId, items);
+      }
 
-      logProgress(`  Processed ${offset} order items, generated ${totalTickets} tickets`);
+      // Process each ticket type group
+      for (const [ticketTypeId, items] of orderItemsByTicketType) {
+        // Calculate total slots needed for these order items
+        const totalSlotsNeeded = items.reduce((sum, item) => sum + item.quantity, 0);
+
+        // Get current offset for this ticket type
+        const currentOffset = slotOffsetByTicketType.get(ticketTypeId) || 0;
+
+        // Fetch inventory slots from DB
+        const inventorySlots = await db
+          .select({ id: schema.ticketInventory.id })
+          .from(schema.ticketInventory)
+          .where(eq(schema.ticketInventory.ticketTypeId, ticketTypeId))
+          .offset(currentOffset)
+          .limit(totalSlotsNeeded);
+
+        // Update offset for next batch
+        slotOffsetByTicketType.set(ticketTypeId, currentOffset + inventorySlots.length);
+
+        // Generate tickets using these slots and add to pending batch
+        let slotIndex = 0;
+        for (const orderItem of items) {
+          for (let i = 0; i < orderItem.quantity; i++) {
+            if (slotIndex >= inventorySlots.length) break;
+
+            const ticket = generateTicketData(
+              orderItem,
+              eventIdsArray,
+              customerIds,
+              inventorySlots[slotIndex].id,
+              usedCodes
+            );
+            pendingTickets.push(ticket);
+            slotIndex++;
+          }
+        }
+
+        // Flush pending tickets when we hit the batch size
+        while (pendingTickets.length >= TICKET_INSERT_BATCH_SIZE) {
+          const batch = pendingTickets.splice(0, TICKET_INSERT_BATCH_SIZE);
+          await db.insert(schema.tickets).values(batch);
+          totalTickets += batch.length;
+        }
+      }
+
+      orderItemOffset += orderItemFetchBatchSize;
+      logProgress(`  Processed ${orderItemOffset.toLocaleString()} order items, generated ${totalTickets.toLocaleString()} tickets`);
+
+      // Clear usedCodes periodically to free memory
+      if (usedCodes.size > 100000) {
+        usedCodes.clear();
+      }
     }
-    logProgress(`✓ Created ${totalTickets} tickets`);
+
+    // Insert any remaining tickets
+    if (pendingTickets.length > 0) {
+      await db.insert(schema.tickets).values(pendingTickets);
+      totalTickets += pendingTickets.length;
+    }
+
+    logProgress(`✓ Created ${totalTickets.toLocaleString()} tickets`);
 
     // Final statistics
     const elapsed = ((Date.now() - startTime) / 1000 / 60).toFixed(2);
     console.log("\n" + "=".repeat(60));
     console.log("📊 SEED COMPLETE - Final Statistics:");
     console.log("=".repeat(60));
-    console.log(`   Venues:        ${venueIds.length.toLocaleString()}`);
-    console.log(`   Events:        ${eventRecords.length.toLocaleString()}`);
-    console.log(`   Ticket Types:  ${ticketTypeIds.length.toLocaleString()}`);
-    console.log(`   Customers:     ${customerIds.length.toLocaleString()}`);
-    console.log(`   Orders:        ${orderIds.length.toLocaleString()}`);
-    console.log(`   Order Items:   ${totalOrderItems.toLocaleString()}`);
-    console.log(`   Tickets:       ${totalTickets.toLocaleString()}`);
+    console.log(`   Venues:          ${venueIds.length.toLocaleString()}`);
+    console.log(`   Events:          ${eventRecords.length.toLocaleString()}`);
+    console.log(`   Ticket Types:    ${ticketTypeIds.length.toLocaleString()}`);
+    console.log(`   Inventory Slots: ${totalInventorySlots.toLocaleString()}`);
+    console.log(`   Customers:       ${customerIds.length.toLocaleString()}`);
+    console.log(`   Orders:          ${orderIds.length.toLocaleString()}`);
+    console.log(`   Order Items:     ${totalOrderItems.toLocaleString()}`);
+    console.log(`   Tickets:         ${totalTickets.toLocaleString()}`);
     console.log("=".repeat(60));
-    console.log(`   Time elapsed:  ${elapsed} minutes`);
+    console.log(`   Time elapsed:    ${elapsed} minutes`);
     console.log("=".repeat(60));
     console.log("\n✅ Database seeded successfully!");
   } catch (error) {

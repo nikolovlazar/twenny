@@ -1,6 +1,6 @@
 import { db } from "@/server/db";
-import { ticketTypes, events } from "@/server/schema";
-import { eq } from "drizzle-orm";
+import { ticketTypes, events, tickets } from "@/server/schema";
+import { eq, sql } from "drizzle-orm";
 
 export async function getTicketType(id: string) {
   const [ticketType] = await db
@@ -15,8 +15,15 @@ export async function getTicketType(id: string) {
     .from(events)
     .where(eq(events.id, ticketType.eventId));
 
+  // Calculate quantitySold from tickets table
+  const [soldCount] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(tickets)
+    .where(eq(tickets.ticketTypeId, id));
+
   return {
     ...ticketType,
+    quantitySold: soldCount?.count || 0,
     event,
   };
 }

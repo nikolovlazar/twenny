@@ -147,9 +147,8 @@ export const ticketTypes = pgTable(
     description: text("description"),
     // Pricing
     price: decimal("price", { precision: 10, scale: 2 }).notNull(),
-    // Inventory
-    quantity: integer("quantity").notNull(), // Total available
-    quantitySold: integer("quantity_sold").notNull().default(0), // Track sales
+    // Inventory - quantity defines how many inventory slots to create
+    quantity: integer("quantity").notNull(), // Total available (creates this many inventory slots)
     // Sale period
     saleStartDate: timestamp("sale_start_date"),
     saleEndDate: timestamp("sale_end_date"),
@@ -169,6 +168,25 @@ export const ticketTypes = pgTable(
     eventIdSortOrderIdx: index("ticket_types_event_id_sort_order_idx").on(
       table.eventId,
       table.sortOrder
+    ),
+  })
+);
+
+// Ticket Inventory - Pre-allocated slots for each ticket type
+// Each row represents a single ticket that can be sold
+export const ticketInventory = pgTable(
+  "ticket_inventory",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ticketTypeId: uuid("ticket_type_id")
+      .notNull()
+      .references(() => ticketTypes.id, { onDelete: "cascade" }),
+    // Timestamps
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    ticketTypeIdIdx: index("ticket_inventory_ticket_type_id_idx").on(
+      table.ticketTypeId
     ),
   })
 );
@@ -298,6 +316,10 @@ export const tickets = pgTable(
     customerId: uuid("customer_id")
       .notNull()
       .references(() => customers.id, { onDelete: "restrict" }),
+    // Link to inventory slot - UNIQUE constraint catches race conditions
+    inventorySlotId: uuid("inventory_slot_id")
+      .notNull()
+      .references(() => ticketInventory.id, { onDelete: "restrict" }),
     // Ticket identification
     ticketCode: varchar("ticket_code", { length: 100 }).notNull(), // Unique code for validation/QR
     barcode: varchar("barcode", { length: 255 }), // Additional barcode if needed
@@ -324,6 +346,11 @@ export const tickets = pgTable(
   },
   (table) => ({
     ticketCodeIdx: uniqueIndex("tickets_ticket_code_idx").on(table.ticketCode),
+    // UNIQUE constraint on inventory_slot_id - this catches the race condition!
+    // Two tickets cannot claim the same inventory slot
+    inventorySlotIdx: uniqueIndex("tickets_inventory_slot_idx").on(
+      table.inventorySlotId
+    ),
     orderIdIdx: index("tickets_order_id_idx").on(table.orderId),
     eventIdIdx: index("tickets_event_id_idx").on(table.eventId),
     customerIdIdx: index("tickets_customer_id_idx").on(table.customerId),
