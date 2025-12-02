@@ -2,6 +2,9 @@ import { betterAuth } from "better-auth";
 import { pgClient } from "./db";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "./db";
+import { eq } from "drizzle-orm";
+import { user } from "../auth-schema";
+import { createAuthMiddleware } from "better-auth/api";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -27,6 +30,37 @@ export const auth = betterAuth({
         required: false,
       },
     },
+  },
+  hooks: {
+    after: createAuthMiddleware(async (ctx) => {
+      // Check if this is a sign-up, sign-in, or callback endpoint (where session is created)
+      if (
+        ctx.path.startsWith("/sign-up") ||
+        ctx.path.startsWith("/sign-in") ||
+        ctx.path.startsWith("/callback")
+      ) {
+        const newSession = ctx.context.newSession;
+
+        if (!newSession) {
+          return;
+        }
+
+        const adminEmail = process.env.ADMIN_EMAIL;
+
+        if (!adminEmail) {
+          return;
+        }
+
+        // Check if the user's email matches the admin email and role is not already admin
+        if (newSession.user.email === adminEmail && newSession.user.role !== "admin") {
+          // Update the user's role to admin
+          await db
+            .update(user)
+            .set({ role: "admin" })
+            .where(eq(user.id, newSession.user.id));
+        }
+      }
+    }),
   },
 });
 

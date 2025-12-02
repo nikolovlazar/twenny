@@ -81,8 +81,10 @@ export const venues = pgTable(
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
-    nameIdx: index("venues_name_idx").on(table.name),
-    cityIdx: index("venues_city_idx").on(table.city),
+    // Intentionally removed indexes for demo purposes:
+    // - nameIdx: Makes name filtering slow
+    // - cityIdx: Makes city filtering slow
+    // This creates slow pagination/filtering that Sentry can detect!
   })
 );
 
@@ -128,9 +130,11 @@ export const events = pgTable(
   (table) => ({
     slugIdx: uniqueIndex("events_slug_idx").on(table.slug),
     venueIdIdx: index("events_venue_id_idx").on(table.venueId),
-    startDateIdx: index("events_start_date_idx").on(table.startDate),
-    statusIdx: index("events_status_idx").on(table.status),
-    categoryIdx: index("events_category_idx").on(table.category),
+    // Intentionally removed indexes for demo purposes:
+    // - startDateIdx: Makes ORDER BY start_date slow
+    // - statusIdx: Makes WHERE status = 'published' slow
+    // - categoryIdx: Makes WHERE category = ? slow
+    // This creates slow pagination that Sentry can detect!
   })
 );
 
@@ -215,8 +219,10 @@ export const customers = pgTable(
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
-    emailIdx: index("customers_email_idx").on(table.email),
-    userIdIdx: index("customers_user_id_idx").on(table.userId),
+    // Intentionally removed indexes for demo purposes:
+    // - emailIdx: Makes email lookups slow
+    // - userIdIdx: Makes user_id lookups slow
+    // This creates slow pagination/filtering that Sentry can detect!
   })
 );
 
@@ -258,11 +264,11 @@ export const orders = pgTable(
   (table) => ({
     orderNumberIdx: uniqueIndex("orders_order_number_idx").on(table.orderNumber),
     customerIdIdx: index("orders_customer_id_idx").on(table.customerId),
-    statusIdx: index("orders_status_idx").on(table.status),
-    paymentStatusIdx: index("orders_payment_status_idx").on(
-      table.paymentStatus
-    ),
-    createdAtIdx: index("orders_created_at_idx").on(table.createdAt),
+    // Intentionally removed indexes for demo purposes:
+    // - statusIdx: Makes status filtering slow
+    // - paymentStatusIdx: Makes payment status filtering slow
+    // - createdAtIdx: Makes ORDER BY createdAt slow (pagination!)
+    // This creates slow pagination/filtering that Sentry can detect!
   })
 );
 
@@ -289,9 +295,9 @@ export const orderItems = pgTable(
   },
   (table) => ({
     orderIdIdx: index("order_items_order_id_idx").on(table.orderId),
-    ticketTypeIdIdx: index("order_items_ticket_type_id_idx").on(
-      table.ticketTypeId
-    ),
+    // Intentionally removed indexes for demo purposes:
+    // - ticketTypeIdIdx: Makes joins slow
+    // This creates slow pagination that Sentry can detect!
   })
 );
 
@@ -351,11 +357,13 @@ export const tickets = pgTable(
     inventorySlotIdx: uniqueIndex("tickets_inventory_slot_idx").on(
       table.inventorySlotId
     ),
-    orderIdIdx: index("tickets_order_id_idx").on(table.orderId),
-    eventIdIdx: index("tickets_event_id_idx").on(table.eventId),
-    customerIdIdx: index("tickets_customer_id_idx").on(table.customerId),
-    statusIdx: index("tickets_status_idx").on(table.status),
-    emailIdx: index("tickets_attendee_email_idx").on(table.attendeeEmail),
+    // Intentionally removed indexes for demo purposes:
+    // - orderIdIdx: Makes joins slow
+    // - eventIdIdx: Makes joins slow
+    // - customerIdIdx: Makes joins slow
+    // - statusIdx: Makes status filtering slow
+    // - emailIdx: Makes email lookups slow
+    // This creates slow pagination/filtering that Sentry can detect!
   })
 );
 

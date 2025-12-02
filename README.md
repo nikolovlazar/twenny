@@ -39,6 +39,23 @@ Copy `.env.example` to `.env.local` and update if needed:
 cp .env.example .env.local
 ```
 
+**Required environment variables:**
+- `ADMIN_EMAIL` - Email address that will automatically receive admin privileges upon signup/signin (e.g., `your-email@gmail.com`)
+
+**Setting up admin access:**
+
+If you've already signed up before setting the `ADMIN_EMAIL` variable, you need to run the admin setup script:
+
+```bash
+# Set your email in .env.local first
+echo "ADMIN_EMAIL=your-email@example.com" >> .env.local
+
+# Then run the script to update your existing account
+npm run db:set-admin
+```
+
+For new signups, the admin role will be automatically assigned if the email matches `ADMIN_EMAIL`.
+
 4. **Run database migrations**
 
 ```bash
@@ -82,6 +99,7 @@ npm run worker
 | `npm run db:migrate` | Run pending migrations |
 | `npm run db:studio` | Open Drizzle Studio (database GUI) |
 | `npm run db:seed` | Seed database with huge dataset |
+| `npm run db:set-admin` | Update existing user to admin based on ADMIN_EMAIL |
 | `npm run worker` | Start BullMQ worker process |
 
 ## 🏗️ Project Structure
