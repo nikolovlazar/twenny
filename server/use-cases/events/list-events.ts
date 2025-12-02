@@ -1,6 +1,7 @@
 import { db } from "../../db";
 import * as schema from "../../schema";
 import { eq, and, gte, lte, like, or, desc, SQL } from "drizzle-orm";
+import * as Sentry from "@sentry/nextjs";
 
 export interface ListEventsParams {
   search?: string;
@@ -81,24 +82,40 @@ export async function listEvents(
   // Calculate offset
   const offset = (page - 1) * limit;
 
-  // Fetch events with venue information
-  const eventsWithVenues = await db
-    .select({
-      id: schema.events.id,
-      title: schema.events.title,
-      slug: schema.events.slug,
-      shortDescription: schema.events.shortDescription,
-      startDate: schema.events.startDate,
-      endDate: schema.events.endDate,
-      category: schema.events.category,
-      thumbnailImageUrl: schema.events.thumbnailImageUrl,
-      venueId: schema.events.venueId,
-    })
-    .from(schema.events)
-    .where(and(...conditions))
-    .orderBy(desc(schema.events.startDate))
-    .limit(limit)
-    .offset(offset);
+  // Fetch events with venue information - INTENTIONALLY SLOW for demo
+  // Missing indexes on startDate, status, category
+  const eventsWithVenues = await Sentry.startSpan(
+    {
+      name: "listEvents.query",
+      op: "db.query",
+      attributes: {
+        "db.operation": "SELECT",
+        "pagination.page": page,
+        "pagination.offset": offset,
+        "pagination.limit": limit,
+        "filter.search": search,
+        "filter.category": category,
+      },
+    },
+    async () =>
+      await db
+        .select({
+          id: schema.events.id,
+          title: schema.events.title,
+          slug: schema.events.slug,
+          shortDescription: schema.events.shortDescription,
+          startDate: schema.events.startDate,
+          endDate: schema.events.endDate,
+          category: schema.events.category,
+          thumbnailImageUrl: schema.events.thumbnailImageUrl,
+          venueId: schema.events.venueId,
+        })
+        .from(schema.events)
+        .where(and(...conditions))
+        .orderBy(desc(schema.events.startDate)) // NO INDEX = SLOW!
+        .limit(limit)
+        .offset(offset) // OFFSET without index = SLOW!
+  );
 
   // N+1 query pattern (intentional for MVP)
   // Fetch venue data for each event
