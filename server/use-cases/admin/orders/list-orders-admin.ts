@@ -16,9 +16,11 @@ export async function listOrdersAdmin(page: number = 1) {
       op: "db.query",
       attributes: {
         "db.operation": "SELECT",
+        "pagination.type": "offset",
         "pagination.page": page,
         "pagination.offset": offset,
         "pagination.limit": PAGE_SIZE,
+        "optimized": "false",
       },
     },
     async () =>
