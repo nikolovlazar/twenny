@@ -51,41 +51,48 @@ export async function listTicketsAdmin(
   if (isJump && page) {
     const offset = (page - 1) * PAGE_SIZE;
 
+    // Build query first to get SQL for instrumentation
+    const ticketsQuery = db
+      .select({
+        id: tickets.id,
+        ticketCode: tickets.ticketCode,
+        status: tickets.status,
+        eventTitle: tickets.eventTitle,
+        ticketTypeName: tickets.ticketTypeName,
+        price: tickets.price,
+        isCheckedIn: tickets.isCheckedIn,
+        checkedInAt: tickets.checkedInAt,
+        attendeeEmail: tickets.attendeeEmail,
+        customerEmail: customers.email,
+        eventId: tickets.eventId,
+        createdAt: tickets.createdAt,
+      })
+      .from(tickets)
+      .leftJoin(events, eq(tickets.eventId, events.id))
+      .leftJoin(customers, eq(tickets.customerId, customers.id))
+      .orderBy(desc(tickets.createdAt), desc(tickets.id))
+      .limit(PAGE_SIZE)
+      .offset(offset); // OFFSET for jumps - shows performance degradation
+
+    const ticketsSql = ticketsQuery.toSQL();
+
     const ticketsList = await Sentry.startSpan(
       {
-        name: "listTicketsAdmin.query",
+        name: ticketsSql.sql,
         op: "db.query",
         attributes: {
-          "db.operation": "SELECT",
-          "pagination.type": "offset-jump",
-          "pagination.page": currentPage,
-          "pagination.offset": offset,
-          "pagination.limit": PAGE_SIZE,
-          "optimized": "false", // Offset jump is slow even in optimized mode
+          "db.system": "postgresql",
+          "query.module": "admin.tickets",
+          "query.action": "list",
+          "query.feature": "paginate",
+          "query.optimized": false, // Offset jump is slow even in optimized mode
+          "query.pagination.type": "offset-jump",
+          "query.pagination.page": currentPage,
+          "query.pagination.offset": offset,
+          "query.pagination.limit": PAGE_SIZE,
         },
       },
-      async () =>
-        await db
-          .select({
-            id: tickets.id,
-            ticketCode: tickets.ticketCode,
-            status: tickets.status,
-            eventTitle: tickets.eventTitle,
-            ticketTypeName: tickets.ticketTypeName,
-            price: tickets.price,
-            isCheckedIn: tickets.isCheckedIn,
-            checkedInAt: tickets.checkedInAt,
-            attendeeEmail: tickets.attendeeEmail,
-            customerEmail: customers.email,
-            eventId: tickets.eventId,
-            createdAt: tickets.createdAt,
-          })
-          .from(tickets)
-          .leftJoin(events, eq(tickets.eventId, events.id))
-          .leftJoin(customers, eq(tickets.customerId, customers.id))
-          .orderBy(desc(tickets.createdAt), desc(tickets.id))
-          .limit(PAGE_SIZE)
-          .offset(offset) // OFFSET for jumps - shows performance degradation
+      () => ticketsQuery
     );
 
     const hasMore = currentPage < totalPages;
@@ -107,41 +114,48 @@ export async function listTicketsAdmin(
   // Normal cursor-based pagination (fast)
   const cursorWhere = buildCursorWhere(cursor, tickets);
 
+  // Build query first to get SQL for instrumentation
+  const ticketsQuery = db
+    .select({
+      id: tickets.id,
+      ticketCode: tickets.ticketCode,
+      status: tickets.status,
+      eventTitle: tickets.eventTitle,
+      ticketTypeName: tickets.ticketTypeName,
+      price: tickets.price,
+      isCheckedIn: tickets.isCheckedIn,
+      checkedInAt: tickets.checkedInAt,
+      attendeeEmail: tickets.attendeeEmail,
+      customerEmail: customers.email,
+      eventId: tickets.eventId,
+      createdAt: tickets.createdAt,
+    })
+    .from(tickets)
+    .leftJoin(events, eq(tickets.eventId, events.id))
+    .leftJoin(customers, eq(tickets.customerId, customers.id))
+    .where(cursorWhere)
+    .orderBy(desc(tickets.createdAt), desc(tickets.id)) // Composite sort with index!
+    .limit(PAGE_SIZE + 1); // +1 to check for more results
+
+  const ticketsSql = ticketsQuery.toSQL();
+
   const ticketsList = await Sentry.startSpan(
     {
-      name: "listTicketsAdmin.query",
+      name: ticketsSql.sql,
       op: "db.query",
-      attributes: {
-        "db.operation": "SELECT",
-        "pagination.type": "cursor",
-        "pagination.cursor": cursor || "first_page",
-        "pagination.page": currentPage,
-        "pagination.limit": PAGE_SIZE,
-        "optimized": "true", // 🎯 KEY FLAG FOR FILTERING IN SENTRY
-      },
+        attributes: {
+          "db.system": "postgresql",
+          "query.module": "admin.tickets",
+          "query.action": "list",
+          "query.feature": "paginate",
+          "query.optimized": true, // 🎯 KEY FLAG FOR FILTERING IN SENTRY
+          "query.pagination.type": "cursor",
+          "query.pagination.cursor": cursor || "first_page",
+          "query.pagination.page": currentPage,
+          "query.pagination.limit": PAGE_SIZE,
+        },
     },
-    async () =>
-      await db
-        .select({
-          id: tickets.id,
-          ticketCode: tickets.ticketCode,
-          status: tickets.status,
-          eventTitle: tickets.eventTitle,
-          ticketTypeName: tickets.ticketTypeName,
-          price: tickets.price,
-          isCheckedIn: tickets.isCheckedIn,
-          checkedInAt: tickets.checkedInAt,
-          attendeeEmail: tickets.attendeeEmail,
-          customerEmail: customers.email,
-          eventId: tickets.eventId,
-          createdAt: tickets.createdAt,
-        })
-        .from(tickets)
-        .leftJoin(events, eq(tickets.eventId, events.id))
-        .leftJoin(customers, eq(tickets.customerId, customers.id))
-        .where(cursorWhere)
-        .orderBy(desc(tickets.createdAt), desc(tickets.id)) // Composite sort with index!
-        .limit(PAGE_SIZE + 1) // +1 to check for more results
+    () => ticketsQuery
   );
 
   const hasMore = ticketsList.length > PAGE_SIZE;
