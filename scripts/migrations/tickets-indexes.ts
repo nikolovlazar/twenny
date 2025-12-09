@@ -1,4 +1,5 @@
-import { pgClient } from '@/server/db';
+import { db } from '@/server/db';
+import { sql } from 'drizzle-orm';
 
 const TICKETS_INDEXES = [
   // Composite index for efficient cursor pagination
@@ -16,12 +17,12 @@ export async function applyTicketsIndexes() {
   console.log('📊 Creating indexes on tickets table...\n');
   console.log('⏳ This may take 30-60 seconds for 13M rows...\n');
 
-  for (const [i, sql] of TICKETS_INDEXES.entries()) {
-    const indexName = sql.match(/INDEX (?:CONCURRENTLY )?(?:IF NOT EXISTS )?(\w+)/)?.[1];
+  for (const [i, statement] of TICKETS_INDEXES.entries()) {
+    const indexName = statement.match(/INDEX (?:CONCURRENTLY )?(?:IF NOT EXISTS )?(\w+)/)?.[1];
     const startTime = Date.now();
 
     try {
-      await pgClient.unsafe(sql);
+      await db.execute(sql.raw(statement));
       const duration = ((Date.now() - startTime) / 1000).toFixed(1);
       console.log(`✅ [${i + 1}/${TICKETS_INDEXES.length}] ${indexName} (${duration}s)`);
     } catch (error: any) {
@@ -50,7 +51,7 @@ export async function removeTicketsIndexes() {
 
   for (const [i, indexName] of indexes.entries()) {
     try {
-      await pgClient.unsafe(`DROP INDEX CONCURRENTLY IF EXISTS ${indexName}`);
+      await db.execute(sql.raw(`DROP INDEX CONCURRENTLY IF EXISTS ${indexName}`));
       console.log(`✅ [${i + 1}/${indexes.length}] Dropped ${indexName}`);
     } catch (error) {
       console.log(`⚠️  [${i + 1}/${indexes.length}] Failed: ${indexName}`);

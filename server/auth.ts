@@ -1,5 +1,4 @@
 import { betterAuth } from "better-auth";
-import { pgClient } from "./db";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
