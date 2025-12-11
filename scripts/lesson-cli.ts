@@ -41,46 +41,105 @@ async function main() {
     console.log(chalk.gray('No state found - first time setup\n'));
   }
 
-  // Select lesson
-  const lessonResponse = await prompts({
-    type: 'select',
-    name: 'lesson',
-    message: 'Select a lesson:',
-    choices: LESSONS.map(l => ({
-      title: l.name,
-      description: l.description,
-      value: l.id,
-      disabled: !l.available,
-    })),
-  });
+  // Parse command line arguments
+  const args = process.argv.slice(2);
+  let selectedLesson: string | undefined;
+  let selectedOptimized: boolean | undefined;
 
-  if (!lessonResponse.lesson) {
-    console.log(chalk.gray('\nCancelled\n'));
-    return;
+  // Support formats:
+  // --lesson=lesson-1 --optimized
+  // --lesson=lesson-1 --unoptimized
+  // lesson-1 optimized
+  // lesson-1 unoptimized
+  if (args.length > 0) {
+    for (let i = 0; i < args.length; i++) {
+      const arg = args[i];
+      if (arg.startsWith('--lesson=')) {
+        selectedLesson = arg.split('=')[1];
+      } else if (arg === '--optimized') {
+        selectedOptimized = true;
+      } else if (arg === '--unoptimized') {
+        selectedOptimized = false;
+      } else if (!selectedLesson && arg.startsWith('lesson-')) {
+        selectedLesson = arg;
+      } else if (!selectedLesson && LESSONS.some(l => l.id === arg)) {
+        selectedLesson = arg;
+      } else if (selectedLesson !== undefined && selectedOptimized === undefined) {
+        if (arg === 'optimized' || arg === 'opt' || arg === 'o') {
+          selectedOptimized = true;
+        } else if (arg === 'unoptimized' || arg === 'unopt' || arg === 'u') {
+          selectedOptimized = false;
+        }
+      }
+    }
   }
 
-  // Select optimization state
-  const stateResponse = await prompts({
-    type: 'select',
-    name: 'optimized',
-    message: 'Select optimization state:',
-    choices: [
-      {
-        title: 'Unoptimized',
-        description: 'Show the problem (slow performance)',
-        value: false,
-      },
-      {
-        title: 'Optimized',
-        description: 'Show the solution (fast performance)',
-        value: true,
-      },
-    ],
-  });
+  // Select lesson (use CLI arg or prompt)
+  let lessonResponse: { lesson?: string } = {};
+  if (selectedLesson) {
+    const lesson = LESSONS.find(l => l.id === selectedLesson);
+    if (!lesson) {
+      console.log(chalk.red(`\n❌ Unknown lesson: ${selectedLesson}\n`));
+      console.log(chalk.gray('Available lessons:'));
+      LESSONS.forEach(l => {
+        console.log(chalk.gray(`  - ${l.id}: ${l.name}`));
+      });
+      return;
+    }
+    if (!lesson.available) {
+      console.log(chalk.red(`\n❌ Lesson not available: ${selectedLesson}\n`));
+      return;
+    }
+    lessonResponse.lesson = selectedLesson;
+    console.log(chalk.cyan(`Lesson: ${lesson.name}\n`));
+  } else {
+    lessonResponse = await prompts({
+      type: 'select',
+      name: 'lesson',
+      message: 'Select a lesson:',
+      choices: LESSONS.map(l => ({
+        title: l.name,
+        description: l.description,
+        value: l.id,
+        disabled: !l.available,
+      })),
+    });
 
-  if (stateResponse.optimized === undefined) {
-    console.log(chalk.gray('\nCancelled\n'));
-    return;
+    if (!lessonResponse.lesson) {
+      console.log(chalk.gray('\nCancelled\n'));
+      return;
+    }
+  }
+
+  // Select optimization state (use CLI arg or prompt)
+  let stateResponse: { optimized?: boolean } = {};
+  if (selectedOptimized !== undefined) {
+    stateResponse.optimized = selectedOptimized;
+    const stateLabel = selectedOptimized ? chalk.green('Optimized') : chalk.yellow('Unoptimized');
+    console.log(`State: ${stateLabel}\n`);
+  } else {
+    stateResponse = await prompts({
+      type: 'select',
+      name: 'optimized',
+      message: 'Select optimization state:',
+      choices: [
+        {
+          title: 'Unoptimized',
+          description: 'Show the problem (slow performance)',
+          value: false,
+        },
+        {
+          title: 'Optimized',
+          description: 'Show the solution (fast performance)',
+          value: true,
+        },
+      ],
+    });
+
+    if (stateResponse.optimized === undefined) {
+      console.log(chalk.gray('\nCancelled\n'));
+      return;
+    }
   }
 
   // Confirm if same as current state

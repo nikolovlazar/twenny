@@ -46,6 +46,7 @@ export function Pagination({ pagination, basePath, itemName }: PaginationProps) 
             size="sm"
             disabled={!hasPrev}
             asChild={hasPrev}
+            id="pagination-prev-btn"
           >
             {hasPrev ? (
               <Link href={`${basePath}?page=${page - 1}`}>
@@ -64,6 +65,7 @@ export function Pagination({ pagination, basePath, itemName }: PaginationProps) 
             size="sm"
             disabled={!hasNext}
             asChild={hasNext}
+            id="pagination-next-btn"
           >
             {hasNext ? (
               <Link href={`${basePath}?page=${page + 1}`}>

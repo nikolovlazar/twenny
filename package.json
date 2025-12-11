@@ -14,7 +14,11 @@
     "db:set-admin": "tsx scripts/set-admin.ts",
     "worker": "tsx server/worker.ts",
     "lesson": "tsx scripts/lesson-cli.ts",
-    "lesson:status": "tsx scripts/status.ts"
+    "lesson:status": "tsx scripts/status.ts",
+    "lesson:opt": "tsx scripts/lesson-cli.ts lesson-1 optimized",
+    "lesson:unopt": "tsx scripts/lesson-cli.ts lesson-1 unoptimized",
+    "loadtest:browser": "K6_BROWSER_ENABLED=true k6 run k6-browser-tickets.js",
+    "loadtest:compare": "./scripts/benchmark-browser-comparison.sh"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",

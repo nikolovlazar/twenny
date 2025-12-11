@@ -58,6 +58,7 @@ export function CursorPagination({ pagination, basePath, itemName }: CursorPagin
             size="sm"
             disabled={!hasPrevious}
             asChild={hasPrevious}
+            id="pagination-prev-btn"
           >
             {hasPrevious ? (
               <Link href={prevUrl}>
@@ -76,6 +77,7 @@ export function CursorPagination({ pagination, basePath, itemName }: CursorPagin
             size="sm"
             disabled={!hasMore}
             asChild={hasMore}
+            id="pagination-next-btn"
           >
             {hasMore && nextCursor ? (
               <Link href={nextUrl}>

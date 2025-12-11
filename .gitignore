@@ -45,3 +45,7 @@ next-env.d.ts
 .env.sentry-build-plugin
 
 .optimization-state.json
+
+# k6 load testing results
+k6-results-*.json
+k6-browser-results-*.json

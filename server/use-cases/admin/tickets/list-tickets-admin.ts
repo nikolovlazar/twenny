@@ -1,6 +1,8 @@
 import { db } from "@/server/db";
 import { tickets, events, customers } from "@/server/schema";
 import { desc, eq, count } from "drizzle-orm";
+import * as Sentry from "@sentry/nextjs";
+
 const PAGE_SIZE = 20;
 
 export async function listTicketsAdmin(page: number = 1) {
@@ -31,11 +33,44 @@ export async function listTicketsAdmin(page: number = 1) {
 
   const countQuery = db.select({ count: count() }).from(tickets);
 
+  // Get SQL strings for Sentry instrumentation
+  const ticketsSql = ticketsQuery.toSQL();
+  const countSql = countQuery.toSQL();
+
   // Run queries in parallel - INTENTIONALLY SLOW for demo
   // Missing indexes on created_at, status, and FK columns
   const [ticketsList, totalResult] = await Promise.all([
-    ticketsQuery,
-    countQuery,
+    Sentry.startSpan(
+      {
+        name: ticketsSql.sql,
+        op: "db.query",
+        attributes: {
+          "db.system": "postgresql",
+          "query.module": "admin.tickets",
+          "query.action": "list",
+          "query.feature": "paginate",
+          "query.optimized": false, // 🎯 KEY FLAG FOR FILTERING IN SENTRY
+          "query.pagination.type": "offset",
+          "query.pagination.page": page,
+          "query.pagination.offset": offset,
+          "query.pagination.limit": PAGE_SIZE,
+        },
+      },
+      () => ticketsQuery
+    ),
+    Sentry.startSpan(
+      {
+        name: countSql.sql,
+        op: "db.query",
+        attributes: {
+          "db.system": "postgresql",
+          "query.module": "admin.tickets",
+          "query.action": "count",
+          "query.feature": "paginate",
+        },
+      },
+      () => countQuery
+    ),
   ]);
 
   const total = totalResult[0].count;
