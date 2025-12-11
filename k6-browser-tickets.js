@@ -6,7 +6,7 @@ export const options = {
     ui: {
       executor: 'constant-vus',
       vus: 1,
-      duration: '15m',
+      duration: __ENV.K6_TEST_DURATION || '15m', // Default 15 minutes, can be overridden
       options: {
         browser: {
           type: 'chromium',
