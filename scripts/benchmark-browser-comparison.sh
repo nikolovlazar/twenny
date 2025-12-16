@@ -36,20 +36,39 @@ echo -e "\n${GREEN}✓ Switched to unoptimized version${NC}"
 echo -e "${YELLOW}⏳ Waiting 5 seconds for Next.js to detect changes...${NC}\n"
 sleep 5
 
-# Run unoptimized browser test (45 minutes)
-echo -e "${CYAN}🚀 Running browser E2E test on UNOPTIMIZED version (45 minutes)...${NC}\n"
-K6_BROWSER_ENABLED=true K6_TEST_DURATION=45m k6 run --out json=k6-browser-results-unoptimized.json k6-browser-tickets.js
+# Run unoptimized browser test (45 minutes) with retries
+MAX_RETRIES=3
+RETRY_COUNT=0
+UNOPT_EXIT_CODE=1
 
-UNOPT_EXIT_CODE=$?
-if [ $UNOPT_EXIT_CODE -ne 0 ]; then
-    echo -e "${YELLOW}⚠️  Unoptimized test encountered issues (exit code: $UNOPT_EXIT_CODE)${NC}"
-fi
+while [ $RETRY_COUNT -lt $MAX_RETRIES ] && [ $UNOPT_EXIT_CODE -ne 0 ]; do
+    if [ $RETRY_COUNT -gt 0 ]; then
+        echo -e "\n${YELLOW}🔄 Retry attempt $RETRY_COUNT of $((MAX_RETRIES - 1))...${NC}\n"
+        sleep 10
+    fi
 
-echo -e "\n${GREEN}✓ Unoptimized test complete${NC}\n"
+    echo -e "${CYAN}🚀 Running browser E2E test on UNOPTIMIZED version (45 minutes)...${NC}\n"
+    K6_BROWSER_ENABLED=true K6_TEST_DURATION=45m k6 run --out json=k6-browser-results-unoptimized.json k6-browser-tickets.js
+
+    UNOPT_EXIT_CODE=$?
+
+    if [ $UNOPT_EXIT_CODE -ne 0 ]; then
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+        if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+            echo -e "${YELLOW}⚠️  Unoptimized test failed (exit code: $UNOPT_EXIT_CODE). Retrying...${NC}"
+        else
+            echo -e "${RED}❌ Unoptimized test failed after $MAX_RETRIES attempts (exit code: $UNOPT_EXIT_CODE)${NC}"
+            echo -e "${RED}❌ Cannot proceed to optimized test. Fix the issues and try again.${NC}"
+            exit 1
+        fi
+    fi
+done
+
+echo -e "\n${GREEN}✓ Unoptimized test complete (45 minutes)${NC}\n"
 
 # Phase 2: Optimized
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${CYAN}📊 Phase 2: Testing OPTIMIZED version (15 minutes)${NC}"
+echo -e "${CYAN}📊 Phase 2: Testing OPTIMIZED version (45 minutes)${NC}"
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
 
 # Switch to optimized
@@ -65,16 +84,16 @@ echo -e "\n${GREEN}✓ Switched to optimized version${NC}"
 echo -e "${YELLOW}⏳ Waiting 5 seconds for Next.js to detect changes...${NC}\n"
 sleep 5
 
-# Run optimized browser test (15 minutes)
-echo -e "${CYAN}🚀 Running browser E2E test on OPTIMIZED version (15 minutes)...${NC}\n"
-K6_BROWSER_ENABLED=true K6_TEST_DURATION=15m k6 run --out json=k6-browser-results-optimized.json k6-browser-tickets.js
+# Run optimized browser test (45 minutes)
+echo -e "${CYAN}🚀 Running browser E2E test on OPTIMIZED version (45 minutes)...${NC}\n"
+K6_BROWSER_ENABLED=true K6_TEST_DURATION=45m k6 run --out json=k6-browser-results-optimized.json k6-browser-tickets.js
 
 OPT_EXIT_CODE=$?
 if [ $OPT_EXIT_CODE -ne 0 ]; then
     echo -e "${YELLOW}⚠️  Optimized test encountered issues (exit code: $OPT_EXIT_CODE)${NC}"
 fi
 
-echo -e "\n${GREEN}✓ Optimized test complete${NC}\n"
+echo -e "\n${GREEN}✓ Optimized test complete (45 minutes)${NC}\n"
 
 # Calculate total duration
 END_TIME=$(date +%s)
@@ -88,7 +107,7 @@ echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━�
 echo -e "${CYAN}⏱️  Total time: ${TOTAL_MINUTES} minutes${NC}\n"
 echo -e "${CYAN}📊 Results saved to:${NC}"
 echo -e "   • k6-browser-results-unoptimized.json (45 min test)"
-echo -e "   • k6-browser-results-optimized.json (15 min test)\n"
+echo -e "   • k6-browser-results-optimized.json (45 min test)\n"
 echo -e "${CYAN}💡 Compare the results to see the performance improvement!${NC}\n"
 
 # Exit with non-zero if either test failed
