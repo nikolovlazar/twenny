@@ -3,8 +3,6 @@
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useTransition } from "react";
-import { useRouter } from "next/navigation";
 
 export type PaginationData = {
   page: number;
@@ -22,17 +20,10 @@ interface PaginationProps {
 }
 
 export function Pagination({ pagination, basePath, itemName }: PaginationProps) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
   const { page, total, totalPages, hasNext, hasPrev } = pagination;
 
-  const handlePageJump = (targetPage: number) => {
-    startTransition(() => {
-      router.push(`${basePath}?page=${targetPage}`);
-    });
-  };
-
-  const quickJumpPages = [5, 5000, 50000, 100000];
+  const prevUrl = `${basePath}?page=${page - 1}`;
+  const nextUrl = `${basePath}?page=${page + 1}`;
 
   return (
     <div className="flex flex-col gap-3 px-2">
@@ -46,10 +37,9 @@ export function Pagination({ pagination, basePath, itemName }: PaginationProps) 
             size="sm"
             disabled={!hasPrev}
             asChild={hasPrev}
-            id="pagination-prev-btn"
           >
             {hasPrev ? (
-              <Link href={`${basePath}?page=${page - 1}`}>
+              <Link href={prevUrl}>
                 <ChevronLeft className="h-4 w-4 mr-1" />
                 Previous
               </Link>
@@ -65,10 +55,9 @@ export function Pagination({ pagination, basePath, itemName }: PaginationProps) 
             size="sm"
             disabled={!hasNext}
             asChild={hasNext}
-            id="pagination-next-btn"
           >
             {hasNext ? (
-              <Link href={`${basePath}?page=${page + 1}`}>
+              <Link href={nextUrl}>
                 Next
                 <ChevronRight className="h-4 w-4 ml-1" />
               </Link>
@@ -84,20 +73,25 @@ export function Pagination({ pagination, basePath, itemName }: PaginationProps) 
 
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-xs text-muted-foreground">Quick jump:</span>
-        {quickJumpPages.map((pageNum) => (
+        {[5, 5000, 50000, 100000].map((pageNum) => (
           <Button
             key={pageNum}
             variant="secondary"
             size="sm"
-            disabled={isPending || pageNum > totalPages}
-            onClick={() => handlePageJump(pageNum)}
+            disabled={pageNum > totalPages}
+            asChild={pageNum <= totalPages}
             className="text-xs h-7"
           >
-            Page {pageNum.toLocaleString()}
+            {pageNum <= totalPages ? (
+              <Link href={`${basePath}?page=${pageNum}`}>
+                Page {pageNum.toLocaleString()}
+              </Link>
+            ) : (
+              <>Page {pageNum.toLocaleString()}</>
+            )}
           </Button>
         ))}
       </div>
     </div>
   );
 }
-
