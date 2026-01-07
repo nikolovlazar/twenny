@@ -19,9 +19,9 @@ const LESSONS: Lesson[] = [
   },
   {
     id: 'lesson-2',
-    name: 'Lesson 2: Coming soon',
-    description: 'TBD',
-    available: false,
+    name: 'Lesson 2: Order Items Caching',
+    description: 'Redis caching with Sentry instrumentation',
+    available: true,
   },
 ];
 
@@ -167,14 +167,26 @@ async function main() {
   console.log(chalk.cyan('\n🔄 Restart your dev server:'));
   console.log(chalk.white('   npm run dev\n'));
 
-  if (stateResponse.optimized) {
-    console.log(chalk.cyan('🧪 Test the optimization:'));
-    console.log(chalk.white('   http://localhost:3000/admin/tickets'));
-    console.log(chalk.gray('   Navigate through pages - notice the consistent speed!\n'));
-  } else {
-    console.log(chalk.cyan('🧪 Test the problem:'));
-    console.log(chalk.white('   http://localhost:3000/admin/tickets?page=10000'));
-    console.log(chalk.gray('   Notice the slowdown at high page numbers!\n'));
+  if (lessonResponse.lesson === 'lesson-1') {
+    if (stateResponse.optimized) {
+      console.log(chalk.cyan('🧪 Test the optimization:'));
+      console.log(chalk.white('   http://localhost:3000/admin/tickets'));
+      console.log(chalk.gray('   Navigate through pages - notice the consistent speed!\n'));
+    } else {
+      console.log(chalk.cyan('🧪 Test the problem:'));
+      console.log(chalk.white('   http://localhost:3000/admin/tickets?page=10000'));
+      console.log(chalk.gray('   Notice the slowdown at high page numbers!\n'));
+    }
+  } else if (lessonResponse.lesson === 'lesson-2') {
+    if (stateResponse.optimized) {
+      console.log(chalk.cyan('🧪 Test the optimization:'));
+      console.log(chalk.white('   http://localhost:3000/admin/order-items'));
+      console.log(chalk.gray('   First load ~1s (cache miss), refresh for ~50ms (cache hit)!\n'));
+    } else {
+      console.log(chalk.cyan('🧪 Test the problem:'));
+      console.log(chalk.white('   http://localhost:3000/admin/order-items'));
+      console.log(chalk.gray('   Notice the ~1s load time on every request!\n'));
+    }
   }
 }
 

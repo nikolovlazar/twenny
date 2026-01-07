@@ -83,9 +83,9 @@ export async function listOrderItems(page: number = 1) {
   // Cache miss - fetch from database
   const result = await fetchOrderItems(page);
 
-  // Only cache the first three pages to avoid Redis bloat
+  // Only cache the first page to avoid Redis bloat
   // cache.get still runs for all pages to track access patterns
-  if (page <= 3) {
+  if (page === 1) {
     await cacheSet(cacheKey, result, { ttl: CACHE_TTL });
   }
 

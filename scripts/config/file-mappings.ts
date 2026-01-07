@@ -41,8 +41,18 @@ export const LESSON_1_MAPPINGS: FileMapping[] = [
   },
 ];
 
+// Lesson 2: Order Items Redis Caching
+export const LESSON_2_MAPPINGS: FileMapping[] = [
+  // Use case with/without Redis caching
+  {
+    template: 'server/use-cases/admin/order-items/list-order-items.ts',
+    target: 'server/use-cases/admin/order-items/list-order-items.ts',
+  },
+];
+
 // Export all lesson mappings for easy lookup
 export const LESSON_MAPPINGS: Record<string, FileMapping[]> = {
   'lesson-1': LESSON_1_MAPPINGS,
+  'lesson-2': LESSON_2_MAPPINGS,
 };
 

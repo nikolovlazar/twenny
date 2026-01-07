@@ -17,6 +17,8 @@
     "lesson:status": "tsx scripts/status.ts",
     "lesson:opt": "tsx scripts/lesson-cli.ts lesson-1 optimized",
     "lesson:unopt": "tsx scripts/lesson-cli.ts lesson-1 unoptimized",
+    "lesson:2:opt": "tsx scripts/lesson-cli.ts lesson-2 optimized",
+    "lesson:2:unopt": "tsx scripts/lesson-cli.ts lesson-2 unoptimized",
     "loadtest:browser": "K6_BROWSER_ENABLED=true k6 run k6-browser-tickets.js",
     "loadtest:compare": "./scripts/benchmark-browser-comparison.sh"
   },

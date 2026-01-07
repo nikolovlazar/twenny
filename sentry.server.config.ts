@@ -3,6 +3,7 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from "@sentry/nextjs";
+import { redisIntegration } from "@sentry/nextjs";
 
 Sentry.init({
   dsn: "https://a34aa6b273b6c2d7e9782873e396b37e@o4506044970565632.ingest.us.sentry.io/4510443826249728",
@@ -19,4 +20,10 @@ Sentry.init({
 
   // Spotlight enabled for local development (https://spotlightjs.com)
   spotlight: true,
+
+  integrations: [
+    redisIntegration({
+      cachePrefixes: ["cache:"],
+    }),
+  ],
 });

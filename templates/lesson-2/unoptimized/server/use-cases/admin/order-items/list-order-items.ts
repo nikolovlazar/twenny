@@ -1,34 +1,10 @@
 import { db } from "@/server/db";
 import { orderItems, orders, ticketTypes, events } from "@/server/schema";
 import { desc, eq, count } from "drizzle-orm";
-import { cacheGet, cacheSet } from "@/server/cache";
 
 const PAGE_SIZE = 20;
-const CACHE_TTL = 600; // 10 minutes
 
-type OrderItemsResult = {
-  orderItems: {
-    id: string;
-    quantity: number;
-    unitPrice: string;
-    subtotal: string;
-    ticketTypeName: string;
-    orderId: string;
-    orderNumber: string | null;
-    eventTitle: string | null;
-    createdAt: Date;
-  }[];
-  pagination: {
-    page: number;
-    pageSize: number;
-    total: number;
-    totalPages: number;
-    hasNext: boolean;
-    hasPrev: boolean;
-  };
-};
-
-async function fetchOrderItems(page: number): Promise<OrderItemsResult> {
+export async function listOrderItems(page: number = 1) {
   const offset = (page - 1) * PAGE_SIZE;
 
   // Run queries in parallel
@@ -69,25 +45,4 @@ async function fetchOrderItems(page: number): Promise<OrderItemsResult> {
       hasPrev: page > 1,
     },
   };
-}
-
-export async function listOrderItems(page: number = 1) {
-  const cacheKey = `order-items:page:${page}`;
-
-  // Try to get from cache first (always check - helps track access patterns)
-  const cached = await cacheGet<OrderItemsResult>(cacheKey);
-  if (cached) {
-    return cached;
-  }
-
-  // Cache miss - fetch from database
-  const result = await fetchOrderItems(page);
-
-  // Only cache the first three pages to avoid Redis bloat
-  // cache.get still runs for all pages to track access patterns
-  if (page <= 3) {
-    await cacheSet(cacheKey, result, { ttl: CACHE_TTL });
-  }
-
-  return result;
 }
