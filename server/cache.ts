@@ -1,5 +1,4 @@
 import Redis from "ioredis";
-import * as Sentry from "@sentry/nextjs";
 
 // Create Redis connection for caching
 const redis = new Redis(process.env.REDIS_URL!, {
@@ -19,29 +18,14 @@ export interface CacheOptions {
 export async function cacheGet<T>(key: string): Promise<T | null> {
   const cacheKey = `${CACHE_PREFIX}${key}`;
 
-  return Sentry.startSpan(
-    {
-      name: cacheKey,
-      op: "cache.get",
-      attributes: {
-        "cache.key": [cacheKey],
-        "network.peer.address": process.env.REDIS_URL,
-      },
-    },
-    async (span) => {
-      const value = await redis.get(cacheKey);
-      const cacheHit = value !== null;
+  const value = await redis.get(cacheKey);
+  const cacheHit = value !== null;
 
-      span.setAttribute("cache.hit", cacheHit);
+  if (cacheHit) {
+    return JSON.parse(value) as T;
+  }
 
-      if (cacheHit) {
-        span.setAttribute("cache.item_size", value.length);
-        return JSON.parse(value) as T;
-      }
-
-      return null;
-    }
-  );
+  return null;
 }
 
 /**
@@ -50,26 +34,13 @@ export async function cacheGet<T>(key: string): Promise<T | null> {
 export async function cacheSet<T>(
   key: string,
   value: T,
-  options: CacheOptions = {}
+  options: CacheOptions = {},
 ): Promise<void> {
   const cacheKey = `${CACHE_PREFIX}${key}`;
   const serialized = JSON.stringify(value);
   const { ttl = 30 } = options; // Default 30 seconds TTL
 
-  return Sentry.startSpan(
-    {
-      name: cacheKey,
-      op: "cache.put",
-      attributes: {
-        "cache.key": [cacheKey],
-        "cache.item_size": serialized.length,
-        "network.peer.address": process.env.REDIS_URL,
-      },
-    },
-    async () => {
-      await redis.setex(cacheKey, ttl, serialized);
-    }
-  );
+  await redis.setex(cacheKey, ttl, serialized);
 }
 
 /**
