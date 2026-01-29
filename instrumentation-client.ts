@@ -6,11 +6,12 @@ import * as Sentry from "@sentry/nextjs";
 
 Sentry.init({
   dsn: "https://a34aa6b273b6c2d7e9782873e396b37e@o4506044970565632.ingest.us.sentry.io/4510443826249728",
+  // dsn: "http://41b32223951a838202c9c5b1f5ce4edc@dev.getsentry.net:8000/2",
 
   // Add optional integrations for additional features
   integrations: [
     Sentry.replayIntegration(),
-    Sentry.spotlightBrowserIntegration(),
+    // Sentry.spotlightBrowserIntegration(),
   ],
 
   // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
@@ -32,4 +33,3 @@ Sentry.init({
 });
 
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
-
