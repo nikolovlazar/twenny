@@ -1,4 +1,5 @@
 import Redis from "ioredis";
+import * as Sentry from "@sentry/node";
 
 // Create Redis connection for caching
 const redis = new Redis(process.env.REDIS_URL!, {
@@ -16,16 +17,33 @@ export interface CacheOptions {
  * Get a value from cache with Sentry instrumentation
  */
 export async function cacheGet<T>(key: string): Promise<T | null> {
-  const cacheKey = `${CACHE_PREFIX}${key}`;
+  return await Sentry.startSpan(
+    {
+      op: "cache.get",
+      name: `cache.get ${key}`,
+    },
+    async (span) => {
+      const cacheKey = `${CACHE_PREFIX}${key}`;
 
-  const value = await redis.get(cacheKey);
-  const cacheHit = value !== null;
+      const value = await redis.get(cacheKey);
+      const cacheHit = value !== null;
 
-  if (cacheHit) {
-    return JSON.parse(value) as T;
-  }
+      // Set cache attributes
+      span?.setAttributes({
+        "cache.key": [key],
+        "cache.hit": cacheHit,
+      });
 
-  return null;
+      if (cacheHit) {
+        const parsed = JSON.parse(value) as T;
+        // Track cache item size
+        span?.setAttribute("cache.item_size", value.length);
+        return parsed;
+      }
+
+      return null;
+    }
+  );
 }
 
 /**
@@ -36,11 +54,25 @@ export async function cacheSet<T>(
   value: T,
   options: CacheOptions = {},
 ): Promise<void> {
-  const cacheKey = `${CACHE_PREFIX}${key}`;
-  const serialized = JSON.stringify(value);
-  const { ttl = 30 } = options; // Default 30 seconds TTL
+  return await Sentry.startSpan(
+    {
+      op: "cache.put",
+      name: `cache.put ${key}`,
+    },
+    async (span) => {
+      const cacheKey = `${CACHE_PREFIX}${key}`;
+      const serialized = JSON.stringify(value);
+      const { ttl = 30 } = options; // Default 30 seconds TTL
 
-  await redis.setex(cacheKey, ttl, serialized);
+      // Set cache attributes
+      span?.setAttributes({
+        "cache.key": [key],
+        "cache.item_size": serialized.length,
+      });
+
+      await redis.setex(cacheKey, ttl, serialized);
+    }
+  );
 }
 
 /**
